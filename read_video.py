@@ -43,42 +43,6 @@ while True:
     # Our operations on the frame come here
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    # canny with gaussian 5x5
-    #det_edges = cv.Canny(gray, 100, 150)
-    #print(det_edges)
-
-    #kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE,(9,9))
-    #dilated = cv.dilate(det_edges, kernel)
-
-    # detect a contours
-    #contours, hierachy = cv.findContours(dilated, cv.RETR_LIST, cv.CHAIN_APPROX_TC89_KCOS)
-    
-    #detect circle
-    #l = []
-    #li = []
-    
-    # wie lang ist der Vektor/die Liste, um jede Stelle in der Liste/im Vektor durchlaufen zu lassen
-    #for k in contours:     
-        #x = k[:, 0][:, 0] 
-        #y = k[:, 0][:, 1]          
-        #mx = np.mean(x);         # Mittelwertbildung aller x-Koordinaten Werte 
-        #my = np.mean(y);         # Mittelwertbildung aller y-Koordinaten Werte, um den Mittelpunkt für den Kreis bestimmen zu können        
-        #print(mx)
-        #print(my)
-
-        # circle
-        #r = []
-        #for a, b in zip(x, y):
-            #r.append(np.sqrt((a - mx) ** 2 + (b - my) ** 2))   # mittels des Satz des Pythagoras wird der Radius für den Kreis ermittelt
-            #print(r)
-
-        # wenn max - min = 0 dann ist das ein perfekter Kreis
-        #if np.max(r) - np.min(r) < 30 and np.max(r) > 20:                      
-            #li.append(k)         
-        
-        #print(contours)
-    #draw_contours = cv.drawContours(gray, li, -1, (0,255,0), 2)
-
     # puuting the mask above the original video
     mask_frame = cv.bitwise_and(gray, gray, mask = fgMask)
 
