@@ -280,9 +280,57 @@ def findLine(image, x, y, video_height, video_width):
     # search the lower right corner
     x4, y4 = findCorner(image=image, x_start=x, y_start=y, vertical_orientation="down", horizontal_orientation="left", video_height=video_height, video_width=video_width)
 
+    # define the lists with the x and y values
     x = [x1, x2, x3, x4]
     y = [y1, y2, y3, y4]
 
     return x, y
+
+def checkUpperLine(image, x, y, video_height, video_width):
+    """
+    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+
+    Keyword arguments:
+    image -- binary image
+    x -- list with the x values of the endpoints of the line
+    y -- list with the y values of the endpoints of the line
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+
+    Output:
+    upper_line -- boolean value to identify if its the upper line (True if its the upper line)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+    # calculate the upper center point 5 between point 1 and 3
+    x.append(round((x[0] + x[2]) / 2))
+    y.append(round((y[0] + y[2]) / 2))
+
+    # canlculate the lower center point 6 between point 2 and 4
+    x.append(round((x[1] + x[3]) / 2))
+    y.append(round((y[1] + y[3]) / 2))
+
+    # set the start point to check if its the upper line
+    x_check = x[5]
+    y_check = y[5]
+
+    # get the pixel value
+    pixel_value = image[y_check, x_check]
+
+    # loop to find the end of the upper line
+    while pixel_value == 255 and y_check > 0 and y_check < video_height:
+        # go one pixel down
+        y_check += 1
+        # get the pixel value
+        pixel_value = image[y_check, x_check]
+
+    # save the found point 7
+    x.append(x_check)
+    y.append(y_check)
+
+    # check if its the upper line
+    upper_line = abs(abs(y[6] - y[5]) - abs(x[1] - x[3])) <= 2
+
+    return upper_line, x, y
 
 

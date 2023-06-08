@@ -43,11 +43,13 @@ while True:
 
     #x, y = field_detection.findCorner(image=thresh, x_start=1000, y_start=200, vertical_orientation="up", horizontal_orientation="left", video_height=video_height, video_width=video_width)
     x, y = field_detection.findLine(image=thresh, x=900, y=200, video_height=video_height, video_width=video_width)
+    upper_line, x, y = field_detection.checkUpperLine(image=thresh, x=x, y=y, video_height=video_height, video_width=video_width)
+    print(upper_line)
     #x = [1000]
     #y = [200]
 
     for x, y in zip(x, y):
-        frame = cv.circle(frame, (x,y), radius= 5, color=(0,0,255), thickness=-1)
+        frame = cv.circle(frame, (x,y), radius= 3, color=(0,0,255), thickness=-1)
 
     #print(thresh[0,0])
 
