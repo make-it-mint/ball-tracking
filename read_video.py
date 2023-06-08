@@ -2,6 +2,7 @@
 
 import numpy as np
 import cv2 as cv
+import field_detection
 
 # video capturing from video file or camera
 # to read a video file insert the file name
@@ -16,6 +17,15 @@ frame_time = int(1000/fps)
 if not cap.isOpened():
     print("Cannot open camera or video file")
     exit()
+else:
+    # get the width and height of the video
+    video_width = int(cap.get(3))
+    video_height = int(cap.get(4))
+    # reduce the video width and heigth to match the max index
+    video_height -= 1
+    video_width -= 1
+    print(f"video width: {video_width}")
+    print(f"video height: {video_height}")
 
 while True:
     # Capture frame-by-frame
@@ -28,6 +38,18 @@ while True:
         break
     # Our operations on the frame come here
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+
+    _, thresh = cv.threshold(gray, 175, 255, cv.THRESH_BINARY)
+
+    #x, y = field_detection.findCorner(image=thresh, x_start=1000, y_start=200, vertical_orientation="up", horizontal_orientation="left", video_height=video_height, video_width=video_width)
+    x, y = field_detection.findLine(image=thresh, x=900, y=200, video_height=video_height, video_width=video_width)
+    #x = [1000]
+    #y = [200]
+
+    for x, y in zip(x, y):
+        frame = cv.circle(frame, (x,y), radius= 5, color=(0,0,255), thickness=-1)
+
+    #print(thresh[0,0])
 
     """Harris Corner Detection"""
     """
@@ -149,11 +171,13 @@ while True:
     """
 
     """ORB Orient FAST and Rotated BRIEF"""
-
+    """
     # Initiate ORB detector
     orb = cv.ORB_create()
 
-    orb.setMaxFeatures(500)
+    orb.setMaxFeatures(5000)
+    orb.setNLevels(8)
+    orb.setScaleFactor(1.2)
 
     # find the keypoints with ORB
     #kp = orb.detect(frame,None)
@@ -166,8 +190,10 @@ while True:
 
     # draw only keypoints location,not size and orientation
     frame = cv.drawKeypoints(frame, kp, None, color=(0,255,0), flags=0)
-
+    """
     # Display the resulting frame
+    cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
+    cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
     cv.imshow("frame", frame)
 
     # stop the loop if the "q" key on the keyboard is pressed 
