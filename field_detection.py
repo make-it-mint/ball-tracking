@@ -2,11 +2,12 @@
 
 import numpy as np
 import cv2 as cv
+import math
 
 def findCorner(image, x_start, y_start, vertical_orientation, horizontal_orientation, video_height, video_width):
     """
     Find a corner from a starting point in the choosen directions.
-
+    --------
     Keyword arguments:
     image -- binary image
     x_start -- x value of the start pixel
@@ -15,7 +16,7 @@ def findCorner(image, x_start, y_start, vertical_orientation, horizontal_orienta
     horizontal_orientation -- horizontal direction to search the corner ("left" or "right")
     video_height -- height of the frame in pixels
     video_width -- width of the frame in pixels
-
+    --------
     Output:
     x -- x value of the corner in pixels
     y -- y value of the corner in pixels
@@ -120,7 +121,7 @@ def findCorner(image, x_start, y_start, vertical_orientation, horizontal_orienta
 
             # define the starting points to search for the second line
             x_check = x
-            y_check = y + (3 * step_y)
+            y_check = y + (5 * step_y)
 
             # check if the values are inside the frame 
             if x_check > 0 and x_check < video_width and y_check > 0 and y_check < video_height:
@@ -137,8 +138,8 @@ def findCorner(image, x_start, y_start, vertical_orientation, horizontal_orienta
                 # save the start of the potential ball in a variable
                 x1 = x_check
 
-                # reset the y_check value
-                y_check = y + (3 * step_y)
+                # reset the x_check value
+                x_check = x + (3 * step_x)
 
                 # get the pixel value
                 pixel_value = image[y_check, x_check]
@@ -228,15 +229,16 @@ def findCorner(image, x_start, y_start, vertical_orientation, horizontal_orienta
 def findLine(image, x, y, video_height, video_width):
     """
     Find the four end points of a line right of the starting point. 
-
+    --------
     Keyword arguments:
     image -- binary image
     x -- x value of the start pixel
     y -- y value of the start pixel
     video_height -- height of the frame in pixels
     video_width -- width of the frame in pixels
-
+    --------
     Output:
+    valid_line -- boolean value to indicate if its a valid line (True if its Valid)
     x -- list with the x values of the four points
     y -- list with the y values of the four points
     """
@@ -284,53 +286,420 @@ def findLine(image, x, y, video_height, video_width):
     x = [x1, x2, x3, x4]
     y = [y1, y2, y3, y4]
 
+    valid_line = abs(abs(y[0] - y[2]) - abs(y[1] - y[3])) <= 2 and abs(abs(x[0] - x[1]) - abs(x[2] - x[3])) <= 2 and abs(y[0] - y[1]) > 100
+
+    return valid_line, x, y
+
+def lineCenter(x, y):
+    """
+    Calculate the upper and lower center points of the given line.
+    --------
+    Keyword arguments:
+    x -- list wich contains the x values of the line end points
+    y -- list wich contains the y values of the line end points
+    --------
+    Output:
+    x -- list with the x values of the calculated points including the input points
+    y -- list with the y values of the calculated points including the input points
+    """
+
+    # calculate the upper center point 5 between point 1 and 3
+    x.append(round((x[0] + x[2]) / 2))
+    y.append(round((y[0] + y[2]) / 2))
+
+    # calculate the lower center point 6 between point 2 and 4
+    x.append(round((x[1] + x[3]) / 2))
+    y.append(round((y[1] + y[3]) / 2))
+
     return x, y
 
 def checkUpperLine(image, x, y, video_height, video_width):
     """
-    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
-
+    Find the lower end of the line. Then check if its the upper line.
+    --------
     Keyword arguments:
     image -- binary image
-    x -- list with the x values of the endpoints of the line
-    y -- list with the y values of the endpoints of the line
+    x -- list wich contains the x values of the line end points
+    y -- list wich contains the y values of the line end points
     video_height -- height of the frame in pixels
     video_width -- width of the frame in pixels
-
+    --------
     Output:
     upper_line -- boolean value to identify if its the upper line (True if its the upper line)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
-    # calculate the upper center point 5 between point 1 and 3
-    x.append(round((x[0] + x[2]) / 2))
-    y.append(round((y[0] + y[2]) / 2))
-
-    # canlculate the lower center point 6 between point 2 and 4
-    x.append(round((x[1] + x[3]) / 2))
-    y.append(round((y[1] + y[3]) / 2))
-
+    
     # set the start point to check if its the upper line
     x_check = x[5]
     y_check = y[5]
 
-    # get the pixel value
-    pixel_value = image[y_check, x_check]
-
-    # loop to find the end of the upper line
-    while pixel_value == 255 and y_check > 0 and y_check < video_height:
-        # go one pixel down
-        y_check += 1
+    # check if the start point is inside the frame
+    if x_check > 0 and x_check < video_width and y_check > 0 and y_check < video_height:
         # get the pixel value
         pixel_value = image[y_check, x_check]
 
-    # save the found point 7
-    x.append(x_check)
-    y.append(y_check)
+        # loop to find the end of the upper line
+        while pixel_value == 255 and y_check > 0 and y_check < video_height:
+            # go one pixel down
+            y_check += 1
+            # get the pixel value
+            pixel_value = image[y_check, x_check]
 
-    # check if its the upper line
-    upper_line = abs(abs(y[6] - y[5]) - abs(x[1] - x[3])) <= 2
+        # save the found point 7
+        x.append(x_check)
+        y.append(y_check)
 
-    return upper_line, x, y
+        # check if its the upper line and save the result in a variable
+        upper_line = abs(abs(y[6] - y[5]) - abs(x[1] - x[3])) <= 3
+
+        # delete the last point if its not the upper line
+        if not upper_line:
+            x.pop()
+            y.pop()
+
+        return upper_line, x, y
+    else:
+        return False, x, y
+
+def checkLowerLine(image, x, y, video_height, video_width):
+    """
+    Find the upper end of the line. Then check if its the lower line.
+    --------
+    Keyword arguments:
+    image -- binary image
+    x -- list wich contains the x values of the line end points
+    y -- list wich contains the y values of the line end points
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    lower_line -- boolean value to identify if its the lower line (True if its the lower line)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+    
+    # set the start point to check if its the lower line
+    x_check = x[4]
+    y_check = y[4]
+
+    # check if the start point is inside the frame
+    if x_check > 0 and x_check < video_width and y_check > 0 and y_check < video_height:
+        # get the pixel value
+        pixel_value = image[y_check, x_check]
+
+        # loop to find the end of the lower line
+        while pixel_value == 255 and y_check > 0 and y_check < video_height:
+            # go one pixel up
+            y_check -= 1
+            # get the pixel value
+            pixel_value = image[y_check, x_check]
+
+        # save the found point 7
+        x.append(x_check)
+        y.append(y_check)
+
+        # check if its the lower line and save the result in a variable
+        lower_line = abs(abs(y[6] - y[4]) - abs(x[0] - x[2])) <= 3
+
+        # delete the last point if its not the upper line
+        if not lower_line:
+            x.pop()
+            y.pop()
+
+        return lower_line, x, y
+    else:
+        return False, x, y
+
+def checkLineCenter(image, x, y, video_height, video_width):
+    """
+    Find the center pointe between the upper and lower line. Then check if its the center of the field.
+    --------
+    Keyword arguments:
+    image -- binary image
+    x -- list wich contains the x values of the line end points
+    y -- list wich contains the y values of the line end points
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    center -- boolean value to identify if its the center of the field (True if its the center)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+
+    # save the center point 15 of the field
+    x.append(round((x[6] + x[13]) / 2))
+    y.append(round((y[6] + y[13]) / 2))
+
+    # calculate the endpoint for the radius of the circle
+    xr = round((x[5] + x[6]) / 2)
+    yr = round((y[5] + y[6]) / 2)
+
+    # calculate the radius
+    radius = math.sqrt(abs(xr - x[14])**2 + (abs(yr - y[14])**2))
+
+    # create a list to save the pixel values on the circle
+    values = []
+
+    # loop to calculate the points on the circle and save the Pixel Values in the values list
+    for theta in np.linspace(0, 2*math.pi, 100):
+        # save the x and y values of the points
+        x.append(round(math.sin(theta)*radius+x[14]))
+        y.append(round(math.cos(theta)*radius+y[14]))
+        # save the pixel values of the points
+        values.append(image[y[-1], x[-1]])
+
+    # check if its the center of the field
+    center = sum(values) / 255 > 65
+
+    return center, x, y
+
+def searchLine(image, x, y, line, video_height, video_width):
+    """
+    Find the second line. Then check if its the center of the field.
+    --------
+    Keyword arguments:
+    image -- binary image
+    x -- x value of the start pixel
+    y -- y value of the start pixel
+    line -- string to define wich line is searched ("lower" or "upper")
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+
+    # set them variables if the lower line is searched
+    if line == "lower":
+        direction = 1
+        x_start = x[5]
+        y_start = y[5]
+
+    # set them variables if the upper line is searched
+    elif line == "upper":
+        direction = -1
+        x_start = x[4]
+        y_start = y[4]
+
+    # end the functioon if the input is incorrect
+    else:
+        return False, x, y
+    
+    # set the varable to indicate if the center is found to False
+    center_found = False
+
+    # calculate the angle of the line
+    alpha = math.atan(abs(x[4]-x[5]) / abs(y[4]-y[5]))
+
+    # set the point to search for the second line, depending on the angle and the length of the first line 
+    x_check = round(x_start + math.sin(alpha) * abs(y[4]-y[5]) * 1.3 * direction)
+    y_check = round(y_start + math.cos(alpha) * abs(y[4]-y[5]) * 1.3 * direction)
+
+    # check if the points are inside the frame
+    if x_check > 0 and x_check < video_width and y_check > 0 and y_check < video_height:
+        # get the pixel value
+        pixel_value = image[y_check, x_check]
+
+        # Check if the pixel has a value of 255 (white)
+        if pixel_value == 255:
+
+            # go left while the pixel has value of 255 (white) and is inside the frame
+            while pixel_value == 255 and x_check > 0 and x_check < video_width:
+
+                # go one pixel to the left
+                x_check -= 1
+                
+                # get the pixel value
+                pixel_value = image[y_check, x_check]
+            
+            # start the search of the second line
+            valid_line, x_second_line, y_second_line = findLine(image=image, x=x_check, y=y_check, video_height=video_height, video_width=video_width)
+
+            # check if the line is valid
+            if valid_line:
+                # calculate the centerpoints of the line
+                x_second_line, y_second_line = lineCenter(x_second_line, y_second_line)
+                
+                if line == "lower":
+                    # check if its the lower line
+                    line_check, x_second_line, y_second_line = checkLowerLine(image=image, x=x_second_line, y=y_second_line, video_height=video_height, video_width=video_width)
+                elif line == "upper":
+                    # check if its the upper line
+                    line_check, x_second_line, y_second_line = checkUpperLine(image=image, x=x_second_line, y=y_second_line, video_height=video_height, video_width=video_width)
+
+                # only continue if its the second line
+                if line_check:
+
+                    # save the points 
+                    if line == "lower":
+                        x.extend(x_second_line)
+                        y.extend(y_second_line)
+                    elif line == "upper":
+                        x_second_line.extend(x)
+                        y_second_line.extend(y)
+                        x = x_second_line
+                        y = y_second_line
+                    
+                    # check if its the center of the field
+                    center, x, y = checkLineCenter(image=image, x=x, y=y, video_height=video_height, video_width=video_width)
+
+                    # check if its the Circle in the center of the field
+                    if center:
+                        center_found = True
+
+    return center_found, x, y
+
+def getAngle(x, y):
+    """
+    Calculate the vertical angle of the center line.
+    --------
+    Keyword arguments:
+    x -- list containing the x values of the center line points
+    y -- list containing the y values of the center line points
+    --------
+    Output:
+    angle -- angle of the center line in rad
+    """
+
+    # calculate the angle of the line
+    alpha = math.atan(abs(x[4]-x[11]) / abs(y[4]-y[11]))
+
+def checkFieldCenter(image, x, y, video_height, video_width):
+    """
+    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+    --------
+    Keyword arguments:
+    image -- binary image
+    x -- x value of the start pixel
+    y -- y value of the start pixel
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+    
+    # set the variable to identify if the center is found to Falso for the case the center cant be found
+    center_found = False
+
+    # search the line and get the endpoints
+    valid_line, x, y = findLine(image=image, x=x, y=y, video_height=video_height, video_width=video_width)
+
+    # check if the line is valid
+    if valid_line:
+        # calculate the centerpoints of the line
+        x, y = lineCenter(x, y)
+
+        # check if its the upper line
+        upper_line, x, y = checkUpperLine(image=image, x=x, y=y, video_height=video_height, video_width=video_width)
+        
+        # search the lower line if its the upper line
+        if upper_line:
+            # search for the lower line and check if ist the center of the field
+            center_found, x, y = searchLine(image=image, x=x, y=y, line="lower", video_height=video_height, video_width=video_width)
+        
+        else:
+            # check if its the lower line
+            lower_line, x, y = checkLowerLine(image=image, x=x, y=y, video_height=video_height, video_width=video_width)
+
+            # search the upper line if its the lower line
+            if lower_line:
+                # search for the upper line and check if ist the center of the field
+                center_found, x, y = searchLine(image=image, x=x, y=y, line="upper", video_height=video_height, video_width=video_width)
+  
+    return center_found, x, y
+
+def findField(image, video_height, video_width):
+    """
+    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+    --------
+    Keyword arguments:
+    image -- binary image
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+
+    # define the start values for x and y
+    x_check = 0
+    y_check = 200
+
+    # set the variable to indicate if the center is found to False
+    center_found = False
+
+    # while loop to find the center of the field
+    while not center_found:
+        # go to the next pixel to the right
+        x_check += 1
+
+        # get the pixel value
+        pixel_value = image[y_check, x_check]
+
+        # check if the ende of the frame is reached 
+        if x_check == video_width and y_check > (video_height - 100):
+            return center_found, [], []
+        
+        # check if the right border of the frame is reached
+        elif x_check == video_width:
+            # reset the x value and go 100 pixels down
+            x_check = 0
+            y_check += 100
+        
+        # check if the pixel has a value of 255 (white)
+        if pixel_value == 255:
+            # try to find the center 
+            center_found, x, y = checkFieldCenter(image=image, x=x_check, y=y_check, video_height=video_height, video_width=video_width)
+
+            # check if the center is found
+            if center_found:
+                # calculate the angle of the center line
+                angle = getAngle(x=x, y=y)
+
+                return center_found, x, y
+            
+            else:
+
+                while pixel_value == 255 and x_check < video_width:
+                    x_check += 1
+
+                    # get the pixel value
+                    pixel_value = image[y_check, x_check]
+
+def fielDetection():
+    """
+    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+    --------
+    Keyword arguments:
+    image -- binary image
+    x -- x value of the start pixel
+    y -- y value of the start pixel
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+                    
+        
+            
+
+
+
+
+
+
+
 
 
