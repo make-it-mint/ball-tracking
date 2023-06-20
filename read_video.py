@@ -3,6 +3,7 @@
 import numpy as np
 import cv2 as cv
 import field_detection
+import time
 
 # video capturing from video file or camera
 # to read a video file insert the file name
@@ -28,6 +29,13 @@ else:
     print(f"video height: {video_height}")
     cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
 
+field_found = False
+
+x = []
+y = []
+ 
+start_time = time.time()
+
 while True:
     # Capture frame-by-frame
     ret, frame = cap.read()
@@ -46,14 +54,17 @@ while True:
     #valid_line, x, y = field_detection.findLine(image=thresh, x=900, y=200, video_height=video_height, video_width=video_width)
     #print(valid_line)
     #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
-    center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
+    #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
+    field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
     #print(upper_line)
     #x = [1000]
     #y = [200]
 
     thresh = cv.cvtColor(thresh, cv.COLOR_GRAY2RGB)
-    for x, y in zip(x, y):
-        thresh = cv.circle(thresh, (x,y), radius=3, color=(0,0,255), thickness=2)
+    for x_point, y_point in zip(x, y):
+        thresh = cv.circle(thresh, (x_point,y_point), radius=3, color=(0,0,255), thickness=2)
+
+    #thresh = cv.circle(thresh, (x,y), radius=3, color=(0,0,255), thickness=2)
 
     #print(thresh[0,0])
 
@@ -65,6 +76,8 @@ while True:
     # stop the loop if the "q" key on the keyboard is pressed 
     if cv.waitKey(1) == ord("q"):
         break
+
+print(time.time() - start_time)
 
 # When everything done, release the capture
 cap.release()

@@ -325,7 +325,7 @@ def checkUpperLine(image, x, y, video_height, video_width):
     video_width -- width of the frame in pixels
     --------
     Output:
-    upper_line -- boolean value to identify if its the upper line (True if its the upper line)
+    upper_line -- boolean value to indicate if its the upper line (True if its the upper line)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
@@ -374,7 +374,7 @@ def checkLowerLine(image, x, y, video_height, video_width):
     video_width -- width of the frame in pixels
     --------
     Output:
-    lower_line -- boolean value to identify if its the lower line (True if its the lower line)
+    lower_line -- boolean value to indicate if its the lower line (True if its the lower line)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
@@ -423,7 +423,7 @@ def checkLineCenter(image, x, y, video_height, video_width):
     video_width -- width of the frame in pixels
     --------
     Output:
-    center -- boolean value to identify if its the center of the field (True if its the center)
+    center -- boolean value to indicate if its the center of the field (True if its the center)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
@@ -445,10 +445,12 @@ def checkLineCenter(image, x, y, video_height, video_width):
     # loop to calculate the points on the circle and save the Pixel Values in the values list
     for theta in np.linspace(0, 2*math.pi, 100):
         # save the x and y values of the points
-        x.append(round(math.sin(theta)*radius+x[14]))
-        y.append(round(math.cos(theta)*radius+y[14]))
+        #x.append(round(math.sin(theta)*radius+x[14]))
+        #y.append(round(math.cos(theta)*radius+y[14]))
+        x_radius = round(math.sin(theta)*radius+x[14])
+        y_radius = round(math.cos(theta)*radius+y[14])
         # save the pixel values of the points
-        values.append(image[y[-1], x[-1]])
+        values.append(image[y_radius, x_radius])
 
     # check if its the center of the field
     center = sum(values) / 255 > 65
@@ -468,7 +470,7 @@ def searchLine(image, x, y, line, video_height, video_width):
     video_width -- width of the frame in pixels
     --------
     Output:
-    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    center_found -- boolean value to indicate if the center of the field is found (True if its the center)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
@@ -555,7 +557,7 @@ def searchLine(image, x, y, line, video_height, video_width):
 
 def getAngle(x, y):
     """
-    Calculate the vertical angle of the center line.
+    Calculate the vertical angle and length of the center line.
     --------
     Keyword arguments:
     x -- list containing the x values of the center line points
@@ -563,14 +565,21 @@ def getAngle(x, y):
     --------
     Output:
     angle -- angle of the center line in rad
+    length -- length of the center line in pixels
     """
 
     # calculate the angle of the line
-    alpha = math.atan(abs(x[4]-x[11]) / abs(y[4]-y[11]))
+    alpha = math.atan(abs(x[4]-x[11]) / abs(y[4]-y[12]))
+    
+    # calculate the length of the line
+    length = math.sqrt(abs(x[4]-x[11])**2 + abs(y[4]-y[12])**2)
+
+    return alpha, length
 
 def checkFieldCenter(image, x, y, video_height, video_width):
     """
-    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+    Calculate the upper and lower center points and find the lower end of the line. Then check if its the 
+    upper line.
     --------
     Keyword arguments:
     image -- binary image
@@ -580,7 +589,7 @@ def checkFieldCenter(image, x, y, video_height, video_width):
     video_width -- width of the frame in pixels
     --------
     Output:
-    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    center_found -- boolean value to indicate if the center of the field is found (True if its the center)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
@@ -615,9 +624,112 @@ def checkFieldCenter(image, x, y, video_height, video_width):
   
     return center_found, x, y
 
+def findPenaltyRoom(image, x, y, angle, length, video_height, video_width):
+    """
+    Search the penalty room from the center of the field.
+    --------
+    Keyword arguments:
+    image -- binary image
+    x -- list containing the x values of the center line points
+    y -- list containing the y values of the center line points
+    angle -- angle of the center line in rad
+    length -- length of the center line in pixels
+    video_height -- height of the frame in pixels
+    video_width -- width of the frame in pixels
+    --------
+    Output:
+    center_found -- boolean value to indicate if the center of the field is found (True if its the center)
+    x -- list with the x values of the detected points including the input points
+    y -- list with the y values of the detected points including the input points
+    """
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] - length * 0.51)
+    y_check = round(y[14] - length * 0.26)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="up", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] - length * 0.51)
+    y_check = round(y[14] + length * 0.26)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="down", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] - length * 0.72)
+    y_check = round(y[14] - length * 0.16)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="up", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] - length * 0.72)
+    y_check = round(y[14] + length * 0.16)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="down", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] + length * 0.51)
+    y_check = round(y[14] - length * 0.26)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="up", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] + length * 0.51)
+    y_check = round(y[14] + length * 0.26)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="down", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] + length * 0.72)
+    y_check = round(y[14] - length * 0.16)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="up", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    # calculate the starting point to search the corner
+    x_check = round(x[14] + length * 0.72)
+    y_check = round(y[14] + length * 0.16)
+    # search the corner
+    x_corner, y_corner = findCorner(image=image, x_start=x_check, y_start=y_check, vertical_orientation="down", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+    # save the corner coordinates
+    x.append(x_corner)
+    y.append(y_corner)
+
+    return x, y
+
 def findField(image, video_height, video_width):
     """
-    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+    Search in the Frame for the field. The frame is scanned in horizontal lines until a white pixel is reached, 
+    then at this the center line and the center of the field is searched. After the center line of the field is found,
+    the penalty room is searched from the center of the field.
     --------
     Keyword arguments:
     image -- binary image
@@ -625,7 +737,7 @@ def findField(image, video_height, video_width):
     video_width -- width of the frame in pixels
     --------
     Output:
-    center_found -- boolean value to identify if the center of the field is found (True if its the center)
+    center_found -- boolean value to indicate if the center of the field is found (True if its the center)
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
@@ -663,26 +775,34 @@ def findField(image, video_height, video_width):
             # check if the center is found
             if center_found:
                 # calculate the angle of the center line
-                angle = getAngle(x=x, y=y)
+                angle, length = getAngle(x=x, y=y)
+
+                # find the corner points of the penalty room
+                x, y = findPenaltyRoom(image=image, x=x, y=y, angle=angle, length=length, video_height=video_height, video_width=video_width)
 
                 return center_found, x, y
             
+            # go to the other side if the white object if the center is not found
             else:
-
+                # go to the other side until a pixel with value 0 (black) is reached
                 while pixel_value == 255 and x_check < video_width:
+                    # go one pixel to the right
                     x_check += 1
 
                     # get the pixel value
                     pixel_value = image[y_check, x_check]
 
-def fielDetection():
+def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
     """
-    Calculate the upper and lower center points and find the lower end of the line. Then check if its the upper line.
+    Depending if the field position is known in the previous frame, check if th positions are still the same or 
+    search for the field. If somme positions are not at the same position, they are substituted with the positions 
+    from the previous frame.
     --------
     Keyword arguments:
     image -- binary image
-    x -- x value of the start pixel
-    y -- y value of the start pixel
+    x_old -- x values of the field points from the previous frame
+    y_old -- y values of the field points from the previous frame
+    field_found -- boolean value to indicate if the  field is found (True if the field is found)
     video_height -- height of the frame in pixels
     video_width -- width of the frame in pixels
     --------
@@ -691,7 +811,217 @@ def fielDetection():
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
-                    
+
+    # check if the field is found in the previous frame
+    if field_found:
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[0]-3), y_start=(y_old[0]+3), vertical_orientation="up", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 1
+        x = [x_corner]
+        y = [y_corner]
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[1]-3), y_start=(y_old[1]-3), vertical_orientation="down", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 2
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[2]+3), y_start=(y_old[2]+3), vertical_orientation="up", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 3
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[2]+3), y_start=(y_old[2]-3), vertical_orientation="down", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 4
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # find the center points 5 and 6 of the line
+        x, y = lineCenter(x, y)
+
+        # starting point to search for point 7
+        x_check = x[5]
+        y_check = y[5]
+
+        # get the pixel value
+        pixel_value = image[y_check, x_check]
+
+        # go to the end of the line
+        while pixel_value == 255 and y_check > 0 and y_check < video_height:
+            # go one pixel down
+            y_check += 1
+            # get the pixel value
+            pixel_value = image[y_check, x_check]
+        
+        # save point 7
+        x.append(x_check)
+        y.append(y_check)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[7]-3), y_start=(y_old[7]+3), vertical_orientation="up", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 8
+        x2 = [x_corner]
+        y2 = [y_corner]
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[8]-3), y_start=(y_old[8]-3), vertical_orientation="down", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 9
+        x2.append(x_corner)
+        y2.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[9]+3), y_start=(y_old[9]+3), vertical_orientation="up", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 10
+        x2.append(x_corner)
+        y2.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[10]+3), y_start=(y_old[10]-3), vertical_orientation="down", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 11
+        x2.append(x_corner)
+        y2.append(y_corner)
+
+        # find the center points 12 and 13 of the line
+        x2, y2 = lineCenter(x2, y2)
+
+        # starting point to search for point 14
+        x_check = x2[5]
+        y_check = y2[5]
+
+        # get the pixel value
+        pixel_value = image[y_check, x_check]
+
+        while pixel_value == 255 and y_check > 0 and y_check < video_height:
+            y_check += 1
+            # get the pixel value
+            pixel_value = image[y_check, x_check]
+        
+        # save point 14
+        x2.append(x_check)
+        y2.append(y_check)
+
+        # save the points of the lower line in the variable with the points of the upper line
+        x.extend(x2)
+        y.extend(y2)
+
+        # calculate and save the center point 15
+        x.append(round((x[6] + x[13]) / 2))
+        y.append(round((y[6] + y[13]) / 2))
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[15]-3), y_start=(y_old[15]+3), vertical_orientation="up", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 16
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[16]-3), y_start=(y_old[16]-3), vertical_orientation="down", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 17
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[17]-3), y_start=(y_old[17]+3), vertical_orientation="up", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 18
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[18]-3), y_start=(y_old[18]-3), vertical_orientation="down", horizontal_orientation="right", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 19
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[19]+3), y_start=(y_old[19]+3), vertical_orientation="up", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 20
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[20]+3), y_start=(y_old[20]-3), vertical_orientation="down", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 21
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[21]+3), y_start=(y_old[21]+3), vertical_orientation="up", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 22
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # search for the corner on the old position
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[22]+3), y_start=(y_old[22]-3), vertical_orientation="down", horizontal_orientation="left", 
+                                    video_height=video_height, video_width=video_width)
+        # save point 23
+        x.append(x_corner)
+        y.append(y_corner)
+
+        # set the variables to check how manny points are the same and wich points are different
+        points_found = 0
+        missed_points = []
+
+        # check how many points are at the same position as in the previous frame
+        for i in range(len(x)):
+            # compare the x and y positions
+            if abs(x[i] - x_old[i]) < 2 and abs(y[i] - y_old[i]) < 2:
+                # indicate that the point is at the same position
+                points_found += 1
+
+            else:
+                # save the indx if the positions dont match
+                missed_points.append(i)
+
+        # check if all the points are at the same position as in the previous frame
+        if points_found == len(x):
+            # the field is found if all the positions are the same
+            field_found = True
+
+        # check if a certain amount of points is at the same position
+        elif points_found > (len(x) - 10):
+            # substitude the positions that dont match with the positions of the previous frame
+            for i in missed_points:
+                x[i] = x_old[i]
+                y[i] = y_old[i]
+
+            # calculate and substitude the center point 15
+            x[14] = round((x[6] + x[13]) / 2)
+            y[14] = round((y[6] + y[13]) / 2)
+
+            # the field is found
+            field_found = True
+        
+        # if the field cant be found try to find the field with the findField function
+        else:
+            # try to find the field
+            field_found, x, y = findField(image=image, video_height=video_height, video_width=video_width)
+    
+    # if the field is unknown in the previous frame try to find it 
+    else:
+        # try to find the field
+        field_found, x, y = findField(image=image, video_height=video_height, video_width=video_width)
+
+    return field_found, x, y
+
+
+
         
             
 
