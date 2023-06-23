@@ -146,17 +146,13 @@ def threshold(frame, back_sub, cap):
 
     return resized, contours
 
-def matlabDetection(frame, first_frame_imbinarized_inverted, xk, cap):
+def matlabDetection(frame, frame_imbinarized, background_inverted, cap):
 
-    ## changing the color of frame into gray tones
-    frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-    ## imbinarize frame 
-    _, frame_imbinarized = cv.threshold(frame_gray, 180, 255, cv.THRESH_BINARY)
     ## combinig the imbinarized frame with the inverted one
-    first_frame_combined = cv.bitwise_and(frame_imbinarized, first_frame_imbinarized_inverted) 
+    first_frame_combined = cv.bitwise_and(frame_imbinarized, background_inverted, frame_imbinarized.shape) 
 
     ## searching for elipse formed shapes
-    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (xk, xk))
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (13, 13))
 
     vid_erosion = cv.erode(first_frame_combined, kernel, iterations=2)
     vid_dilation = cv.dilate(vid_erosion, kernel, iterations=3)
