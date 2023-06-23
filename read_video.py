@@ -2,8 +2,11 @@
 
 import numpy as np
 import cv2 as cv
-import field_detection
 import time
+
+import field_detection
+import image_processing
+
 
 # video capturing from video file or camera
 # to read a video file insert the file name
@@ -28,6 +31,11 @@ else:
     print(f"video width: {video_width}")
     print(f"video height: {video_height}")
     cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+    ret, frame = cap.read()
+
+    hist = image_processing.findTreshold(image=frame)
+
+    print(hist)
 
 field_found = False
 
@@ -42,7 +50,7 @@ while True:
 
     # if frame is read correctly ret is True
     # stop the loop when the frame is not read correctly
-    if not  ret:
+    if not ret:
         print("Can't recive frame (stream end?). Exiting ...")
         break
     # Our operations on the frame come here
