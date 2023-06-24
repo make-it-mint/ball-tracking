@@ -146,15 +146,20 @@ def threshold(frame, back_sub, cap):
 
     return resized, contours
 
-def matlabDetection(frame, frame_imbinarized, background_inverted, cap):
+def matlabDetection(frame, frame_imbinarized, background_inverted, cap, xk, iter):
+
+    #print(type(frame_imbinarized[0][0]))
+    #print(frame_imbinarized[0][0])
+    #print(type(background_inverted[0][0]))
+    #print(background_inverted[0][0])
 
     ## combinig the imbinarized frame with the inverted one
-    first_frame_combined = cv.bitwise_and(frame_imbinarized, background_inverted, frame_imbinarized.shape) 
+    first_frame_combined = cv.bitwise_and(frame_imbinarized, background_inverted) 
 
     ## searching for elipse formed shapes
-    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (13, 13))
+    kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (xk, xk))
 
-    vid_erosion = cv.erode(first_frame_combined, kernel, iterations=2)
+    vid_erosion = cv.erode(first_frame_combined, kernel, iterations=iter)
     vid_dilation = cv.dilate(vid_erosion, kernel, iterations=3)
 
     ## finding the ball / encircle the ball 
