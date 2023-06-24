@@ -11,17 +11,16 @@ import image_processing
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
-cap = cv.VideoCapture("videos/test-game.mp4")
-
-fps = cap.get(cv.CAP_PROP_FPS)
-print(f"fps: {fps}")
-frame_time = int(1000/fps)
+cap = cv.VideoCapture("Test-Videos/test-game.mp4")
 
 # exit the programm if the camera cannot be oppend, or the video file cannot be read
 if not cap.isOpened():
     print("Cannot open camera or video file")
     exit()
 else:
+    fps = cap.get(cv.CAP_PROP_FPS)
+    print(f"fps: {fps}")
+    frame_time = int(1000/fps)
     # get the width and height of the video
     video_width = int(cap.get(3))
     video_height = int(cap.get(4))
