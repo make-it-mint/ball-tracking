@@ -17,7 +17,7 @@ iterations = []
 update_rate = []
 pixel_detection = []
 
-for pxc in range(6, 17, 2):
+for pxc in range(5, 16, 2):
     for upd in range(5, 31, 5):
         for iter in range(1, 3):
             for xk in range (7, 20, 2):
@@ -201,4 +201,4 @@ for pxc in range(6, 17, 2):
 df = pd.DataFrame(data = {"pixel count":pixel_detection, "update rate": update_rate, "iterations": iterations, 
                           "kernel size": kernel_size, "time rate": time_rate, "detection rate": detection_rate})
 ## save data frame as cvs data
-df.to_csv("Erkennungsdaten_eigene_backgroundsubstraction.csv")
+df.to_csv("Erkennungsdaten_eigene_backgroundsubstraction_2.csv")
