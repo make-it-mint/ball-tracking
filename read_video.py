@@ -18,7 +18,7 @@ update_rate = []
 pixel_detection = []
 
 for pxc in range(5, 16, 2):
-    for upd in range(5, 31, 5):
+    for upd in range(4, 30, 5):
         for iter in range(1, 3):
             for xk in range (7, 20, 2):
                 ## video capturing from video file or camera
@@ -115,8 +115,8 @@ for pxc in range(5, 16, 2):
                         # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
                         frame_list.append(frame_imbinarized_copy)
                         background = sum(frame_list)
-                        background[background >= 6] = 255
-                        background[background < 6] = 0
+                        background[background >= pxc] = 255
+                        background[background < pxc] = 0
                         background_inverted = cv.bitwise_not(background)
                     elif len(frame_list) == 50 and update_frame_list == upd:
                         frame_list.pop(0)
@@ -125,8 +125,8 @@ for pxc in range(5, 16, 2):
                         frame_list.append(frame_imbinarized_copy) 
                         update_frame_list = 0
                         background = sum(frame_list)
-                        background[background >= 7] = 255
-                        background[background < 7] = 0
+                        background[background >= pxc] = 255
+                        background[background < pxc] = 0
                         background_inverted = cv.bitwise_not(background)
                     else: 
                         update_frame_list += 1
