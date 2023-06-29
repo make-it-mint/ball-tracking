@@ -11,7 +11,7 @@ import image_processing
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
-cap = cv.VideoCapture("Test-Videos/test-game.mp4")
+cap = cv.VideoCapture("Test-Videos/ball_tracking_test.mp4")
 
 # exit the programm if the camera cannot be oppend, or the video file cannot be read
 if not cap.isOpened():
@@ -29,18 +29,21 @@ else:
     video_width -= 1
     print(f"video width: {video_width}")
     print(f"video height: {video_height}")
-    cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+
+    # go to a specific frame
+    #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+
     ret, frame = cap.read()
 
-    hist = image_processing.findTreshold(image=frame)
-
-    print(hist)
+    treshold = image_processing.findTreshold(image=frame)
 
 field_found = False
 
 x = []
 y = []
  
+frame_count = 0
+
 start_time = time.time()
 
 while True:
@@ -52,17 +55,20 @@ while True:
     if not ret:
         print("Can't recive frame (stream end?). Exiting ...")
         break
+
+    frame_count += 1
+
     # Our operations on the frame come here
     gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    _, thresh = cv.threshold(gray, 175, 255, cv.THRESH_BINARY)
+    _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
 
     #x, y = field_detection.findCorner(image=thresh, x_start=900, y_start=800, vertical_orientation="up", horizontal_orientation="right", video_height=video_height, video_width=video_width)
     #valid_line, x, y = field_detection.findLine(image=thresh, x=900, y=200, video_height=video_height, video_width=video_width)
     #print(valid_line)
     #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
-    #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-    field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+    center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
+    #field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
     #print(upper_line)
     #x = [1000]
     #y = [200]
@@ -84,7 +90,12 @@ while True:
     if cv.waitKey(1) == ord("q"):
         break
 
-print(time.time() - start_time)
+duration = time.time() - start_time
+
+average_fps = frame_count / duration
+
+print(f"\nduration: \n{time.time() - start_time}s")
+print(f"\naverage fps: \n{average_fps}")
 
 # When everything done, release the capture
 cap.release()

@@ -754,21 +754,25 @@ def findField(image, video_height, video_width):
         # go to the next pixel to the right
         x_check += 1
 
+        if x_check > video_width:
+            x_check = video_width
+
         # get the pixel value
         pixel_value = image[y_check, x_check]
 
         # check if the ende of the frame is reached 
-        if x_check == video_width and y_check > (video_height - 100):
+        if x_check >= video_width and y_check > (video_height - 200):
             return center_found, [], []
         
         # check if the right border of the frame is reached
         elif x_check == video_width:
             # reset the x value and go 100 pixels down
             x_check = 0
-            y_check += 100
+            y_check += 200
         
         # check if the pixel has a value of 255 (white)
         if pixel_value == 255:
+
             # try to find the center 
             center_found, x, y = checkFieldCenter(image=image, x=x_check, y=y_check, video_height=video_height, video_width=video_width)
 
