@@ -163,14 +163,13 @@ while True:
         y_mid.append(round(np.mean(y)))
 
         if len(x_mid_old) == 1 and len(x_mid) > 1 and len(y_mid_old) == 1 and len(y_mid) > 1:
-            print(x_mid)
-            print(x_mid_old)
-            for x_mid, y_mid in zip(x_mid, y_mid):
-                x_distance = abs(x_mid - x_mid_old) 
-                y_distance = abs(y_mid - y_mid_old)
-                total_distance.append(np.sqrt(x_distance ** 2 + y_distance ** 2))
-        else:
-            print("list is empty")
+            #print(x_mid)
+            #print(x_mid_old)
+            x_distance = abs(x_mid[-1] - x_mid_old[0]) 
+            y_distance = abs(y_mid[-1] - y_mid_old[0])
+            total_distance.append(np.sqrt(x_distance ** 2 + y_distance ** 2))
+        #else:
+            #print("list is empty")
 
         '''
         ## defining the form of the ball 
@@ -194,8 +193,12 @@ while True:
     if len(total_distance) > 0:
         # print(contours[total_distance.index(min(total_distance))])
         ball = contours[total_distance.index(min(total_distance))]
+        ball_x = [x_mid[total_distance.index(min(total_distance))]]
+        ball_y = [y_mid[total_distance.index(min(total_distance))]]
     else:
         ball = contours
+        x_ball = x_mid
+        y_ball = y_mid
 
     if x_mid and x_mid_old == 1 and y_mid and y_mid_old == 1:
         x_vel = x_mid - x_mid_old
@@ -204,12 +207,10 @@ while True:
     ## kalman filter
     # kf.statePre = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
     # kf.statePost = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
-    if len(x_mid) and len(y_mid) == 1:
+    if len(x_ball) and len(y_ball) == 1:
         # kf.statePre = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
         # kf.statePost = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
-        kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
-        x_mid_old = x_mid[0]
-        y_mid_old = y_mid[0] 
+        kf.correct(np.array([[np.float32(x_ball[0])],[np.float32(y_ball[0])]]))
     # else:
         # kf_predict = kf.predict()
 
@@ -241,11 +242,11 @@ while True:
     if cv.waitKey(1) == ord("q"):
         break
 
+    x_mid_old = x_mid
+    y_mid_old = y_mid 
+    
     # ball_pos_x.append(curr_x)
     # ball_pos_y.append(curr_y)
-
-    x_mid_old = x_mid
-    y_mid_old = y_mid
 
 # detection of the ball percentage
 detect_perc = (i * 100) / frame_count
