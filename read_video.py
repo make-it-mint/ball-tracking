@@ -162,14 +162,13 @@ while True:
         x_mid.append(round(np.mean(x)))
         y_mid.append(round(np.mean(y)))
 
-        if len(x_mid_old) == 1 and len(x_mid) > 1 and len(y_mid_old) == 1 and len(y_mid) > 1:
-            #print(x_mid)
-            #print(x_mid_old)
+        print(x_mid)
+        print(x_mid_old)
+
+        if len(x_mid_old) == 1 and len(x_mid) >= 1 and len(y_mid_old) == 1 and len(y_mid) >= 1:
             x_distance = abs(x_mid[-1] - x_mid_old[0]) 
             y_distance = abs(y_mid[-1] - y_mid_old[0])
             total_distance.append(np.sqrt(x_distance ** 2 + y_distance ** 2))
-        #else:
-            #print("list is empty")
 
         '''
         ## defining the form of the ball 
@@ -187,14 +186,18 @@ while True:
             x_mid.pop(-1)
             y_mid.pop(-1)
         '''
-    # print(total_distance)
-    # print(contours)
 
     if len(total_distance) > 0:
         # print(contours[total_distance.index(min(total_distance))])
         ball = contours[total_distance.index(min(total_distance))]
         ball_x = [x_mid[total_distance.index(min(total_distance))]]
         ball_y = [y_mid[total_distance.index(min(total_distance))]]
+
+        print(total_distance)
+        print(total_distance.index(min(total_distance)))
+        print(f"ball x:{ball_x}")
+        print(f"ball y:{ball_y}")
+
     else:
         ball = contours
         x_ball = x_mid
