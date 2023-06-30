@@ -3,7 +3,9 @@
 import numpy as np
 import cv2 as cv
 import math
+from numba import jit
 
+@jit(nopython=True)
 def findCorner(image, x_start, y_start, vertical_orientation, horizontal_orientation, video_height, video_width):
     """
     Find a corner from a starting point in the choosen directions.
@@ -431,7 +433,7 @@ def checkLineCenter(image, x, y, video_height, video_width):
     # save the center point 15 of the field
     x.append(round((x[6] + x[13]) / 2))
     y.append(round((y[6] + y[13]) / 2))
-
+    
     # calculate the endpoint for the radius of the circle
     xr = round((x[5] + x[6]) / 2)
     yr = round((y[5] + y[6]) / 2)
@@ -453,7 +455,7 @@ def checkLineCenter(image, x, y, video_height, video_width):
         values.append(image[y_radius, x_radius])
 
     # check if its the center of the field
-    center = sum(values) / 255 > 65
+    center = sum(values) / 255 > 50
 
     return center, x, y
 
@@ -621,7 +623,7 @@ def checkFieldCenter(image, x, y, video_height, video_width):
             if lower_line:
                 # search for the upper line and check if ist the center of the field
                 center_found, x, y = searchLine(image=image, x=x, y=y, line="upper", video_height=video_height, video_width=video_width)
-  
+        
     return center_found, x, y
 
 def findPenaltyRoom(image, x, y, angle, length, video_height, video_width):
@@ -742,32 +744,37 @@ def findField(image, video_height, video_width):
     y -- list with the y values of the detected points including the input points
     """
 
+    x_border_left = round(video_width * 0.30)
+    x_border_right = video_width - x_border_left
+
+    y_border_upper = round(video_height * 0.20)
+    y_border_lower = video_height - y_border_upper
+    
+
+
     # define the start values for x and y
-    x_check = 0
-    y_check = 200
+    x_check = x_border_left
+    y_check = y_border_upper
 
     # set the variable to indicate if the center is found to False
     center_found = False
-
+    
     # while loop to find the center of the field
     while not center_found:
         # go to the next pixel to the right
         x_check += 1
 
-        if x_check > video_width:
-            x_check = video_width
-
         # get the pixel value
         pixel_value = image[y_check, x_check]
 
         # check if the ende of the frame is reached 
-        if x_check >= video_width and y_check > (video_height - 200):
+        if x_check >= (x_border_right) and y_check > (y_border_lower):
             return center_found, [], []
         
         # check if the right border of the frame is reached
-        elif x_check == video_width:
+        elif x_check >= (x_border_right):
             # reset the x value and go 100 pixels down
-            x_check = 0
+            x_check = x_border_left
             y_check += 200
         
         # check if the pixel has a value of 255 (white)
@@ -789,7 +796,7 @@ def findField(image, video_height, video_width):
             # go to the other side if the white object if the center is not found
             else:
                 # go to the other side until a pixel with value 0 (black) is reached
-                while pixel_value == 255 and x_check < video_width:
+                while pixel_value == 255 and x_check < (x_border_right):
                     # go one pixel to the right
                     x_check += 1
 

@@ -7,11 +7,15 @@ import time
 import field_detection
 import image_processing
 
-
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
 cap = cv.VideoCapture("Test-Videos/ball_tracking_test.mp4")
+
+x = []
+y = []
+
+field_found = False
 
 # exit the programm if the camera cannot be oppend, or the video file cannot be read
 if not cap.isOpened():
@@ -30,17 +34,19 @@ else:
     print(f"video width: {video_width}")
     print(f"video height: {video_height}")
 
-    # go to a specific frame
-    #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
-
     ret, frame = cap.read()
 
     treshold = image_processing.findTreshold(image=frame)
 
-field_found = False
+    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-x = []
-y = []
+    _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
+
+    field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+
+    # go to a specific frame
+    #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+    cap.set(cv.CAP_PROP_POS_FRAMES, 0)
  
 frame_count = 0
 
@@ -63,12 +69,17 @@ while True:
 
     _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
 
-    #x, y = field_detection.findCorner(image=thresh, x_start=900, y_start=800, vertical_orientation="up", horizontal_orientation="right", video_height=video_height, video_width=video_width)
+    """x = []
+    y = []
+    for _ in range(100):
+        x_corner, y_corner = field_detection.findCorner(image=thresh, x_start=900, y_start=800, vertical_orientation="up", horizontal_orientation="right", video_height=video_height, video_width=video_width)
+        x.append(x_corner)
+        y.append(y_corner)"""
     #valid_line, x, y = field_detection.findLine(image=thresh, x=900, y=200, video_height=video_height, video_width=video_width)
     #print(valid_line)
     #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
-    center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-    #field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+    #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
+    field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
     #print(upper_line)
     #x = [1000]
     #y = [200]
