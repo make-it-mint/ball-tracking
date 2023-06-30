@@ -52,7 +52,7 @@ def kalman_method():
     kalman_fil = cv.KalmanFilter(4,2)
     kalman_fil.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)
     kalman_fil.transitionMatrix = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]],np.float32)
-    kalman_fil.processNoiseCov = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32) * 0.03
+    kalman_fil.processNoiseCov = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32) * 1
 
     return kalman_fil
 

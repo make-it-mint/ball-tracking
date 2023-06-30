@@ -85,10 +85,10 @@ cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
 
 frame_count = 0
 
-# variabel i for right detection 
+## variabel i for right detection 
 i = 0
 
-# variabel j for right detection kalman 
+## variabel j for right detection kalman 
 j = 0
 
 ## stop time - comparing the times how long a algorthm takes to go through the video 
@@ -102,7 +102,7 @@ y_mid_old = []
 x_vel = 0
 y_vel = 0
 
-kalman_mp = np.array((2,1), np.float32)
+kf_predict = np.array([[np.float32(0)],[np.float32(0)]])
 
 while True:
     ## Capture frame-by-frame
@@ -123,7 +123,8 @@ while True:
     if len(frame_list) < 50: 
         frame_imbinarized_copy = frame_imbinarized
         # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
-        frame_list.append(frame_imbinarized_copy)
+        while len(frame_list) < 50:
+            frame_list.append(frame_imbinarized_copy)
         background = sum(frame_list)
         background[background >= 6] = 255
         background[background < 6] = 0
@@ -150,22 +151,51 @@ while True:
     x_mid = []
     y_mid = []
 
+    circle_contour_list = []
+    total_distance = []
 
     for mid_value_contours in contours:
-        # print(mid_value_contours[:, 0][:, 1])
         
         x = mid_value_contours[:, 0][:, 0]
         y = mid_value_contours[:, 0][:, 1]
 
         x_mid.append(round(np.mean(x)))
-        y_mid.append(round(np.mean(y))) 
+        y_mid.append(round(np.mean(y)))
 
-        # print(int(np.mean(x)))
+        if len(x_mid_old) == 1 and len(x_mid) > 1 and len(y_mid_old) == 1 and len(y_mid) > 1:
+            print(x_mid)
+            print(x_mid_old)
+            for x_mid, y_mid in zip(x_mid, y_mid):
+                x_distance = abs(x_mid - x_mid_old) 
+                y_distance = abs(y_mid - y_mid_old)
+                total_distance.append(np.sqrt(x_distance ** 2 + y_distance ** 2))
+        else:
+            print("list is empty")
 
-    if len(contours) == 1:
-        bp = np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]])
-        kf.correct(bp)
-        tp = kf.predict()
+        '''
+        ## defining the form of the ball 
+        ## circle
+        r = []
+        for a, b in zip(x, y):
+            ## with pytagoras defining the radius of the ball/circle 
+            r.append(np.sqrt((a - x_mid[-1]) ** 2 + (b - y_mid[-1]) ** 2))  
+        max(r) - min(r)
+
+        ## if max - min = 0 it means a oerfect circle
+        if np.max(r) - np.min(r) < 15 and np.max(r) < 30:
+            circle_contour_list.append(mid_value_contours)
+        else: 
+            x_mid.pop(-1)
+            y_mid.pop(-1)
+        '''
+    # print(total_distance)
+    # print(contours)
+
+    if len(total_distance) > 0:
+        # print(contours[total_distance.index(min(total_distance))])
+        ball = contours[total_distance.index(min(total_distance))]
+    else:
+        ball = contours
 
     if x_mid and x_mid_old == 1 and y_mid and y_mid_old == 1:
         x_vel = x_mid - x_mid_old
@@ -174,20 +204,24 @@ while True:
     ## kalman filter
     # kf.statePre = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
     # kf.statePost = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
-    # print(kf.predict()[1, 0])
     if len(x_mid) and len(y_mid) == 1:
-        kf.statePre = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
-        kf.statePost = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
-        # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
-        # print(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
+        # kf.statePre = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
+        # kf.statePost = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
+        kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
+        x_mid_old = x_mid[0]
+        y_mid_old = y_mid[0] 
+    # else:
+        # kf_predict = kf.predict()
 
-    # kf.correct(np.array([[np.float32(csv.x_pos[frame_count])],[np.float32(csv.y_pos[frame_count])]]))
-    kf_predict = kf.predict()
-    cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (255,0,0), 2)
+    # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
+    # kf_predict = kf.predict()
+    cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
 
     ## calculating the failsure percentage 
-    if len(contours) == 1 and abs(x_mid[0] - csv.x_pos[frame_count]) <= 20 and abs(y_mid[0] - csv.y_pos[frame_count]) <= 20:
+    if len(ball) == 1 and abs(x_mid[0] - csv.x_pos[frame_count]) <= 20 and abs(y_mid[0] - csv.y_pos[frame_count]) <= 20:
         # variabel i for right detection 
+        i += 1
+    elif abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
         i += 1
     
     ## calculating the failsure percentage for kalman
@@ -196,6 +230,9 @@ while True:
         j += 1
 
     frame_count += 1 
+
+    kf_predict = kf.predict()
+    # cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (255,0,0), 2)
     
     ## Display the resulting frame
     cv.imshow("resized", frame)
