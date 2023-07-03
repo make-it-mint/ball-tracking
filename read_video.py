@@ -64,19 +64,12 @@ ball_pos_y = []
 curr_x = 0
 curr_y = 0
 
-'''
-# mouse callback function
-def draw_circle(event,x,y,flags,param):
-    if event == cv.EVENT_LBUTTONDOWN:
-        global frame, curr_x, curr_y
-        frame_copy = copy.deepcopy(frame)
-        cv.circle(frame_copy, (x, y), 20, (255,0,0), 2)
-        global ball_pos_x, ball_pos_y
-        curr_x = x
-        curr_y = y 
-        ## Display the resulting frame
-        # cv.imshow("frame", frame_copy)
-'''
+## searching for the ball and rembering its last position
+x_ball_found_remember = []
+y_ball_found_remember = []
+
+x_ball_fr_mid = 960 
+y_ball_fr_mid = 540
 
 ## clicking the center auf the ball 
 cv.namedWindow("resized", cv.WND_PROP_FULLSCREEN)
@@ -142,71 +135,33 @@ while True:
     else: 
         update_frame_list += 1
 
-    resized, contours = ball_tracking_methods.matlabDetection(frame = frame, 
-                                                              frame_imbinarized = frame_imbinarized,
-                                                              background_inverted = background_inverted, 
-                                                              cap = cap)
+    resized, contours, ball, x_ball, y_ball, x_mid, y_mid = ball_tracking_methods.matlabDetection(
+        frame = frame, 
+        frame_imbinarized = frame_imbinarized,
+        background_inverted = background_inverted, 
+        cap = cap,
+        x_ball_fr_mid = (kf_predict[0] + x_ball_fr_mid) / 2,
+        y_ball_fr_mid = (kf_predict[1] + y_ball_fr_mid) / 2)
     
-    ## lists for the mid values
-    x_mid = []
-    y_mid = []
+    ## searching for the ball and rembering its last position
+    if len(x_ball_found_remember) and len(y_ball_found_remember) < 5 and len(ball) == 1:
+        x_ball_found_remember.append(x_ball)
+        y_ball_found_remember.append(y_ball)
+        x_ball_fr_mid = round(np.mean(x_ball_found_remember))
+        y_ball_fr_mid = round(np.mean(y_ball_found_remember))
+    elif len(x_ball_found_remember) and len(y_ball_found_remember) > 5 and len(ball) == 1:
+        x_ball_found_remember.pop(-1)
+        y_ball_found_remember.pop(-1)
+        x_ball_found_remember.append(x_ball)
+        y_ball_found_remember.append(y_ball)
+        x_ball_fr_mid = round(np.mean(x_ball_found_remember))
+        y_ball_fr_mid = round(np.mean(y_ball_found_remember))
+    elif len(ball) == 1:
+        x_ball_found_remember.append(x_ball)
+        y_ball_found_remember.append(y_ball)
+        x_ball_fr_mid = round(np.mean(x_ball_found_remember))
+        y_ball_fr_mid = round(np.mean(y_ball_found_remember))
 
-    circle_contour_list = []
-    total_distance = []
-
-    for mid_value_contours in contours:
-        
-        x = mid_value_contours[:, 0][:, 0]
-        y = mid_value_contours[:, 0][:, 1]
-
-        x_mid.append(round(np.mean(x)))
-        y_mid.append(round(np.mean(y)))
-
-        print(x_mid)
-        print(x_mid_old)
-
-        if len(x_mid_old) == 1 and len(x_mid) >= 1 and len(y_mid_old) == 1 and len(y_mid) >= 1:
-            x_distance = abs(x_mid[-1] - x_mid_old[0]) 
-            y_distance = abs(y_mid[-1] - y_mid_old[0])
-            total_distance.append(np.sqrt(x_distance ** 2 + y_distance ** 2))
-
-        '''
-        ## defining the form of the ball 
-        ## circle
-        r = []
-        for a, b in zip(x, y):
-            ## with pytagoras defining the radius of the ball/circle 
-            r.append(np.sqrt((a - x_mid[-1]) ** 2 + (b - y_mid[-1]) ** 2))  
-        max(r) - min(r)
-
-        ## if max - min = 0 it means a oerfect circle
-        if np.max(r) - np.min(r) < 15 and np.max(r) < 30:
-            circle_contour_list.append(mid_value_contours)
-        else: 
-            x_mid.pop(-1)
-            y_mid.pop(-1)
-        '''
-
-    if len(total_distance) > 0:
-        # print(contours[total_distance.index(min(total_distance))])
-        ball = contours[total_distance.index(min(total_distance))]
-        ball_x = [x_mid[total_distance.index(min(total_distance))]]
-        ball_y = [y_mid[total_distance.index(min(total_distance))]]
-
-        print(total_distance)
-        print(total_distance.index(min(total_distance)))
-        print(f"ball x:{ball_x}")
-        print(f"ball y:{ball_y}")
-
-    else:
-        ball = contours
-        x_ball = x_mid
-        y_ball = y_mid
-
-    if x_mid and x_mid_old == 1 and y_mid and y_mid_old == 1:
-        x_vel = x_mid - x_mid_old
-        y_vel = y_mid - y_mid_old
-    
     ## kalman filter
     # kf.statePre = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
     # kf.statePost = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
@@ -245,11 +200,8 @@ while True:
     if cv.waitKey(1) == ord("q"):
         break
 
-    x_mid_old = x_mid
-    y_mid_old = y_mid 
-    
-    # ball_pos_x.append(curr_x)
-    # ball_pos_y.append(curr_y)
+    x_mid_old = x_ball
+    y_mid_old = y_ball 
 
 # detection of the ball percentage
 detect_perc = (i * 100) / frame_count
