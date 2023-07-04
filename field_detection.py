@@ -822,32 +822,35 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
     x -- list with the x values of the detected points including the input points
     y -- list with the y values of the detected points including the input points
     """
+    field_moved = False
 
     # check if the field is found in the previous frame
     if field_found:
+
+        check_distance = 5
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[0]-3), y_start=(y_old[0]+3), vertical_orientation="up", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[0]-check_distance), y_start=(y_old[0]+check_distance), vertical_orientation="up", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 1
         x = [x_corner]
         y = [y_corner]
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[1]-3), y_start=(y_old[1]-3), vertical_orientation="down", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[1]-check_distance), y_start=(y_old[1]-check_distance), vertical_orientation="down", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 2
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[2]+3), y_start=(y_old[2]+3), vertical_orientation="up", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[2]+check_distance), y_start=(y_old[2]+check_distance), vertical_orientation="up", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 3
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[2]+3), y_start=(y_old[2]-3), vertical_orientation="down", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[2]+check_distance), y_start=(y_old[2]-check_distance), vertical_orientation="down", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 4
         x.append(x_corner)
@@ -875,28 +878,28 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
         y.append(y_check)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[7]-3), y_start=(y_old[7]+3), vertical_orientation="up", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[7]-check_distance), y_start=(y_old[7]+check_distance), vertical_orientation="up", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 8
         x2 = [x_corner]
         y2 = [y_corner]
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[8]-3), y_start=(y_old[8]-3), vertical_orientation="down", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[8]-check_distance), y_start=(y_old[8]-check_distance), vertical_orientation="down", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 9
         x2.append(x_corner)
         y2.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[9]+3), y_start=(y_old[9]+3), vertical_orientation="up", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[9]+check_distance), y_start=(y_old[9]+check_distance), vertical_orientation="up", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 10
         x2.append(x_corner)
         y2.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[10]+3), y_start=(y_old[10]-3), vertical_orientation="down", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[10]+check_distance), y_start=(y_old[10]-check_distance), vertical_orientation="down", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 11
         x2.append(x_corner)
@@ -930,56 +933,56 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
         y.append(round((y[6] + y[13]) / 2))
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[15]-3), y_start=(y_old[15]+3), vertical_orientation="up", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[15]-check_distance), y_start=(y_old[15]+check_distance), vertical_orientation="up", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 16
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[16]-3), y_start=(y_old[16]-3), vertical_orientation="down", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[16]-check_distance), y_start=(y_old[16]-check_distance), vertical_orientation="down", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 17
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[17]-3), y_start=(y_old[17]+3), vertical_orientation="up", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[17]-check_distance), y_start=(y_old[17]+check_distance), vertical_orientation="up", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 18
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[18]-3), y_start=(y_old[18]-3), vertical_orientation="down", horizontal_orientation="right", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[18]-check_distance), y_start=(y_old[18]-check_distance), vertical_orientation="down", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
         # save point 19
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[19]+3), y_start=(y_old[19]+3), vertical_orientation="up", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[19]+check_distance), y_start=(y_old[19]+check_distance), vertical_orientation="up", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 20
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[20]+3), y_start=(y_old[20]-3), vertical_orientation="down", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[20]+check_distance), y_start=(y_old[20]-check_distance), vertical_orientation="down", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 21
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[21]+3), y_start=(y_old[21]+3), vertical_orientation="up", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[21]+check_distance), y_start=(y_old[21]+check_distance), vertical_orientation="up", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 22
         x.append(x_corner)
         y.append(y_corner)
 
         # search for the corner on the old position
-        x_corner, y_corner = findCorner(image=image, x_start=(x_old[22]+3), y_start=(y_old[22]-3), vertical_orientation="down", horizontal_orientation="left", 
+        x_corner, y_corner = findCorner(image=image, x_start=(x_old[22]+check_distance), y_start=(y_old[22]-check_distance), vertical_orientation="down", horizontal_orientation="left", 
                                     video_height=video_height, video_width=video_width)
         # save point 23
         x.append(x_corner)
@@ -1006,7 +1009,7 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
             field_found = True
 
         # check if a certain amount of points is at the same position
-        elif points_found > (len(x) - 10):
+        elif points_found > (len(x) - 15):
             # substitude the positions that dont match with the positions of the previous frame
             for i in missed_points:
                 x[i] = x_old[i]
@@ -1023,13 +1026,16 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
         else:
             # try to find the field
             field_found, x, y = findField(image=image, video_height=video_height, video_width=video_width)
+            field_moved = True
     
     # if the field is unknown in the previous frame try to find it 
     else:
         # try to find the field
         field_found, x, y = findField(image=image, video_height=video_height, video_width=video_width)
+        field_moved = True
 
-    return field_found, x, y
+
+    return field_found,field_moved, x, y
 
 
 

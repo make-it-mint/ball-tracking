@@ -10,12 +10,7 @@ import image_processing
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
-cap = cv.VideoCapture("Test-Videos/ball_tracking_test.mp4")
-
-x = []
-y = []
-
-field_found = False
+cap = cv.VideoCapture("Test-Videos/test-game.mp4")
 
 # exit the programm if the camera cannot be oppend, or the video file cannot be read
 if not cap.isOpened():
@@ -42,11 +37,22 @@ else:
 
     _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
 
-    field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+    x = []
+    y = []
+
+    x_old_points = []
+    y_old_points = []
+
+    x_average = []
+    y_average = []
+
+    field_found = False
+
+    field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
 
     # go to a specific frame
-    #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
-    cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+    cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+    #cap.set(cv.CAP_PROP_POS_FRAMES, 0)
  
 frame_count = 0
 
@@ -79,10 +85,59 @@ while True:
     #print(valid_line)
     #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
     #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-    field_found, x, y = field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+    field_found, field_moved, x, y = field_detection.fielDetection(image=thresh, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width)
     #print(upper_line)
     #x = [1000]
     #y = [200]
+
+    # save points history
+    # check if the field is found and has moved
+    if field_found and field_moved:
+        # delete the old history
+        x_old_points = []
+        y_old_points = []
+        
+        # save the new points of the field
+        x_old_points.append(x)
+        y_old_points.append(y)
+
+        # set the average variable to the new points
+        x_average = x_old_points[0]
+        y_average = y_old_points[0]
+
+    # check if the field ist found and if less than a certain amount of points are saved
+    elif field_found and len(x_old_points) < 10:
+        # save the new points in the list
+        x_old_points.append(x)
+        y_old_points.append(y)
+
+        # check if more than one set of points is saved
+        if len(x_old_points) > 1:
+            # calculate the average for every point
+            x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
+            y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
+
+        # if only one set of points is saved
+        else:
+            # set the average to the one saved set
+            x_average = x_old_points[0]
+            y_average = y_old_points[0]
+
+    # if the field is found
+    elif field_found:
+        # delete the oldest set of points
+        x_old_points.pop(0)
+        y_old_points.pop(0)
+
+        # save the new set of points
+        x_old_points.append(x)
+        y_old_points.append(y)
+
+        # calculate the average for every point
+        x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
+        y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
+
+
 
     thresh = cv.cvtColor(thresh, cv.COLOR_GRAY2RGB)
     for x_point, y_point in zip(x, y):
