@@ -146,20 +146,21 @@ def threshold(frame, back_sub, cap):
 
     return resized, contours
 
-def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_fr_mid, y_ball_fr_mid):
+def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_fr_mid, y_ball_fr_mid, x_left, x_right, y_upper, y_lower):
 
     ## combinig the imbinarized frame with the inverted one
-    first_frame_combined = cv.bitwise_and(frame_imbinarized, background_inverted) 
+    first_frame_combined = cv.bitwise_and(frame_imbinarized, background_inverted)
+    first_frame_combined_cor = first_frame_combined[y_upper:y_lower, x_left:x_right] 
 
     ## searching for elipse formed shapes
     kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (13, 13))
 
-    vid_erosion = cv.erode(first_frame_combined, kernel, iterations=1)
+    vid_erosion = cv.erode(first_frame_combined_cor, kernel, iterations=1)
     vid_dilation = cv.dilate(vid_erosion, kernel, iterations=3)
 
     ## finding the ball / encircle the ball 
     ## find contours
-    contours, _ = cv.findContours(vid_dilation, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+    contours, _ = cv.findContours(vid_dilation, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE, offset = (x_left, y_upper))
 
     con_filtered = []
 
@@ -186,10 +187,6 @@ def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_f
 
         x_mid.append(round(np.mean(x)))
         y_mid.append(round(np.mean(y)))
-
-        """HIER WEITER MACHEN FUNKTIONIERT NICHT MEHR; BALL IST NICHT DIE VARIABEL DIE GESUCHT WIRD ODER DOCH? 
-        WAS MUSS ÜBERGEBEN WERDEN DAMIT DIE DISTANZ ZUM NÄCHSTEN GEFUNDENEN ELEMENT BERECHNET WIRD
-        ES MACHT ALESS PENG PENG PENG"""
 
         if len(x_mid) >= 1 and len(y_mid) >= 1:
             x_distance = abs(x_mid[-1] - x_ball_fr_mid) 

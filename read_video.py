@@ -6,6 +6,8 @@ import copy
 import pandas as pd
 import ball_tracking_methods
 import time
+import field_detection
+import image_processing
 
 ## a list to save the 50 first frames and to update the list for a better recognition 
 frame_list = []
@@ -28,7 +30,6 @@ cap = cv.VideoCapture("Test-Videos/ball_tracking_test.MP4")
 
 # import csv compare ball tracking data
 csv = pd.read_csv("X_und_Y_Positionen_des_Balles_Video_ball_tracking_test.csv")
-print(csv.x_pos[0])
 
 fps = cap.get(cv.CAP_PROP_FPS)
 # cap.set(cv.CAP_PROP_POS_FRAMES, fps * 57) # start video by sek 57
@@ -51,6 +52,28 @@ first_frame_imbinarized_inverted = cv.bitwise_not(first_frame_imbinarized)
 if not cap.isOpened():
     print("Cannot open camera or video file")
     exit()
+else:
+    _, frame_ip = cap.read()
+    threshold_ip = image_processing.findTreshold(image = frame_ip)
+
+    ## get the width and height of the video
+    video_width = int(cap.get(3))
+    video_height = int(cap.get(4))
+    ## reduce the video width and heigth to match the max index
+    video_height -= 1
+    video_width -= 1
+
+x = []
+y = []
+
+x_old_points = []
+y_old_points = []
+
+x_average = []
+y_average = []
+
+field_found = False
+
 
 ## background subtraction
 # back_sub = cv.createBackgroundSubtractorMOG2()
@@ -107,6 +130,63 @@ while True:
         print("Can't recive frame (stream end?). Exiting ...")
         break
 
+    field_image, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+        image_color = frame, 
+        x_old = x_average,
+        y_old = y_average,
+        field_found = field_found,
+        video_height = video_height,
+        video_width = video_width,
+        threshold = threshold_ip
+    )
+
+    ## save points history
+    ## check if the field is found and has moved
+    if field_found and field_moved:
+        # delete the old history
+        x_old_points = []
+        y_old_points = []
+
+        ## save the new points of the field
+        x_old_points.append(x)
+        y_old_points.append(y)
+
+        ## set the average variable to the new points
+        x_average = x_old_points[0]
+        y_average = y_old_points[0]
+
+    ## check if the field ist found and if less than a certain amount of points are saved
+    elif field_found and len(x_old_points) < 10:
+        # save the new points in the list
+        x_old_points.append(x)
+        y_old_points.append(y)
+
+        ## check if more than one set of points is saved
+        if len(x_old_points) > 1:
+            # calculate the average for every point
+            x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
+            y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
+
+        ## if only one set of points is saved
+        else:
+            # set the average to the one saved set
+            x_average = x_old_points[0]
+            y_average = y_old_points[0]
+
+    ## if the field is found
+    elif field_found:
+        ## delete the oldest set of points
+        x_old_points.pop(0)
+        y_old_points.pop(0)
+
+        ## save the new set of points
+        x_old_points.append(x)
+        y_old_points.append(y)
+
+        ## calculate the average for every point
+        x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
+        y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
+
     ## changing the color of frame into gray tones
     frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
     ## imbinarize frame 
@@ -141,7 +221,12 @@ while True:
         background_inverted = background_inverted, 
         cap = cap,
         x_ball_fr_mid = (kf_predict[0] + x_ball_fr_mid) / 2,
-        y_ball_fr_mid = (kf_predict[1] + y_ball_fr_mid) / 2)
+        y_ball_fr_mid = (kf_predict[1] + y_ball_fr_mid) / 2,
+        x_right = x_right,
+        x_left = x_left,
+        y_upper = y_upper,
+        y_lower = y_lower
+        )
     
     ## searching for the ball and rembering its last position
     if len(x_ball_found_remember) and len(y_ball_found_remember) < 5 and len(ball) == 1:
