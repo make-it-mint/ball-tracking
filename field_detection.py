@@ -828,6 +828,7 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
     if field_found:
 
         check_distance = 5
+
         # search for the corner on the old position
         x_corner, y_corner = findCorner(image=image, x_start=(x_old[0]-check_distance), y_start=(y_old[0]+check_distance), vertical_orientation="up", horizontal_orientation="right", 
                                     video_height=video_height, video_width=video_width)
@@ -1034,8 +1035,31 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
         field_found, x, y = findField(image=image, video_height=video_height, video_width=video_width)
         field_moved = True
 
+    if field_found:
+        left_reference_point = (x[17] + x[18]) / 2
+        right_reference_point = (x[21] + x[22]) / 2
 
-    return field_found,field_moved, x, y
+        left_length = x[14] - left_reference_point
+        right_length = right_reference_point - x[14]
+
+        x_left = round(left_reference_point - left_length * 0.25)
+        x_right = round(right_reference_point + right_length * 0.25)
+        
+        y_upper = min(y) - 20
+        y_lower = max(y) + 20
+    
+    else:
+        x_left = 0
+        x_right = video_width
+
+        y_upper = 0
+        y_lower = video_height
+
+    field_image = image[y_upper:y_lower, x_left:x_right]
+
+
+
+    return field_image, field_found, field_moved, x, y
 
 
 

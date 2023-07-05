@@ -10,7 +10,7 @@ import image_processing
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
-cap = cv.VideoCapture("Test-Videos/test-game.mp4")
+cap = cv.VideoCapture("Test-Videos/ball_tracking_test.mp4")
 
 # exit the programm if the camera cannot be oppend, or the video file cannot be read
 if not cap.isOpened():
@@ -51,8 +51,8 @@ else:
     field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
 
     # go to a specific frame
-    cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
-    #cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+    #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+    cap.set(cv.CAP_PROP_POS_FRAMES, 0)
  
 frame_count = 0
 
@@ -85,7 +85,7 @@ while True:
     #print(valid_line)
     #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
     #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-    field_found, field_moved, x, y = field_detection.fielDetection(image=thresh, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width)
+    field_image, field_found, field_moved, x, y = field_detection.fielDetection(image=thresh, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width)
     #print(upper_line)
     #x = [1000]
     #y = [200]
@@ -148,9 +148,9 @@ while True:
     #print(thresh[0,0])
 
     # Display the resulting frame
-    cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
-    cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
-    cv.imshow("frame", thresh)
+    #cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
+    #cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
+    cv.imshow("frame", field_image)
 
     # stop the loop if the "q" key on the keyboard is pressed 
     if cv.waitKey(1) == ord("q"):
