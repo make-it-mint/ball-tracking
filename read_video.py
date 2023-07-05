@@ -63,6 +63,9 @@ else:
     video_height -= 1
     video_width -= 1
 
+    cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+
+
 x = []
 y = []
 
@@ -95,9 +98,9 @@ x_ball_fr_mid = 960
 y_ball_fr_mid = 540
 
 ## clicking the center auf the ball 
-cv.namedWindow("resized", cv.WND_PROP_FULLSCREEN)
+#cv.namedWindow("resized", cv.WND_PROP_FULLSCREEN)
 # cv.setMouseCallback("frame",draw_circle)
-cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
+#cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
 
 frame_count = 0
 
@@ -260,13 +263,15 @@ while True:
     # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
     # kf_predict = kf.predict()
     cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
+    cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (255,0,0), 2)
 
     ## calculating the failsure percentage 
-    if len(ball) == 1 and abs(x_mid[0] - csv.x_pos[frame_count]) <= 20 and abs(y_mid[0] - csv.y_pos[frame_count]) <= 20:
+    if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
         # variabel i for right detection 
         i += 1
     elif abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
         i += 1
+    print(i)
     
     ## calculating the failsure percentage for kalman
     if abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
