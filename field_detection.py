@@ -1061,16 +1061,3 @@ def fielDetection(image, x_old, y_old, field_found, video_height, video_width):
 
     return field_image, field_found, field_moved, x, y
 
-
-
-        
-            
-
-
-
-
-
-
-
-
-

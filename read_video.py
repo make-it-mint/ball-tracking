@@ -3,60 +3,198 @@
 import numpy as np
 import cv2 as cv
 import time
+import mysql.connector
+import dotenv
+import os
+import datetime
 
 import field_detection
 import image_processing
 
+video_file = "ball_tracking_test.mp4"
+
+# load the .env file wich contains the username and password for the MySQL connection
+dotenv.load_dotenv()
+
+# open a connection to the MySQL datbase
+mydb = mysql.connector.connect(
+    host="192.168.116.52",
+    user=str(os.getenv("USER")),
+    password=str(os.getenv("PASSWORD"))
+)
+
+# create a curser object to interact with the database
+mycurser = mydb.cursor()
+
+# create the database if it doesn't exist
+mycurser.execute("CREATE DATABASE IF NOT EXISTS ball_tracking")
+
+# show all the Databases
+mycurser.execute("SHOW DATABASES")
+
+# print the databases
+print("Databases")
+for x in mycurser:
+    print(x)
+print("")
+
+# swwitch to the ball_tracking database
+mycurser.execute("USE ball_tracking")
+
+mycurser.execute("DROP TABLE IF EXISTS positions")
+mycurser.execute("DROP TABLE IF EXISTS sessions")
+mycurser.execute("DROP TABLE IF EXISTS videos")
+
+# create a table for video informations if it doesn't exist
+mycurser.execute(
+    "CREATE TABLE IF NOT EXISTS videos( \
+    video_id INT NOT NULL AUTO_INCREMENT, \
+    video_name VARCHAR(500) NOT NULL, \
+    fps DOUBLE NOT NULL, \
+    frames INT NOT NULL, \
+    duration DOUBLE NOT NULL, \
+    PRIMARY KEY (video_id), \
+    UNIQUE(video_name) \
+    )"
+)
+
+# create a table for session informations if it doesn't exist
+mycurser.execute(
+    "CREATE TABLE IF NOT EXISTS sessions( \
+    session_id INT NOT NULL AUTO_INCREMENT, \
+    start DATETIME(0) NOT NULL, \
+    end DATETIME(0), \
+    video_id INT, \
+    PRIMARY KEY (session_id), \
+    FOREIGN KEY (video_id) REFERENCES videos(video_id) ON UPDATE CASCADE ON DELETE RESTRICT \
+    )"
+)
+
+# create a table for the positions if the table doesn't exist
+mycurser.execute(
+    "CREATE TABLE IF NOT EXISTS positions( \
+    session_id INT, \
+    position_id INT, \
+    ball_x INT, \
+    ball_y INT, \
+    kalman_x INT, \
+    kalman_y INT, \
+    field_center_x INT, \
+    field_center_y INT, \
+    time DATETIME(6), \
+    PRIMARY KEY (session_id, position_id), \
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON UPDATE CASCADE ON DELETE CASCADE \
+    )"
+)
+
+# show all the tables
+mycurser.execute("SHOW TABLES")
+
+# print the tables
+print("Tables in ball_tracking")
+for x in mycurser:
+    print(x)
+print("")
+
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
-cap = cv.VideoCapture("Test-Videos/ball_tracking_test.mp4")
+cap = cv.VideoCapture("Test-Videos/" + video_file)
 
 # exit the programm if the camera cannot be oppend, or the video file cannot be read
 if not cap.isOpened():
     print("Cannot open camera or video file")
     exit()
-else:
-    fps = cap.get(cv.CAP_PROP_FPS)
-    print(f"fps: {fps}")
-    frame_time = int(1000/fps)
-    # get the width and height of the video
-    video_width = int(cap.get(3))
-    video_height = int(cap.get(4))
-    # reduce the video width and heigth to match the max index
-    video_height -= 1
-    video_width -= 1
-    print(f"video width: {video_width}")
-    print(f"video height: {video_height}")
 
-    ret, frame = cap.read()
+# get the video fps
+fps = cap.get(cv.CAP_PROP_FPS)
+# get the total frame count of the video
+total_frames = cap.get(cv.CAP_PROP_FRAME_COUNT)
+# calculate the duration of the video
+video_duration = total_frames / fps
+# print the fps
+print(f"fps: {fps}")
+# calculate the frame time 
+frame_time = int(1000/fps)
+# get the width and height of the video
+video_width = int(cap.get(3))
+video_height = int(cap.get(4))
+# reduce the video width and heigth to match the max index
+video_height -= 1
+video_width -= 1
+print(f"video width: {video_width}")
+print(f"video height: {video_height}")
 
-    treshold = image_processing.findTreshold(image=frame)
+ret, frame = cap.read()
 
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+treshold = image_processing.findTreshold(image=frame)
 
-    _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
+gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    x = []
-    y = []
+_, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
 
-    x_old_points = []
-    y_old_points = []
+x = []
+y = []
 
-    x_average = []
-    y_average = []
+x_old_points = []
+y_old_points = []
 
-    field_found = False
+x_average = []
+y_average = []
 
-    field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+field_found = False
 
-    # go to a specific frame
-    #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
-    cap.set(cv.CAP_PROP_POS_FRAMES, 0)
- 
+field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+
+# go to a specific frame
+#cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
+cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+
 frame_count = 0
 
-start_time = time.time()
+# check if the video is already in the database
+mycurser.execute("SELECT COUNT(*) FROM videos WHERE video_name = %s", (video_file,))
+if mycurser.fetchall()[0][0] == 0:
+    video_exist = False
+else:
+    video_exist = True
+
+print(f"video exists: {video_exist}")
+
+# insert the video in the Database if it doesn't exist
+if not video_exist:
+    sql = "INSERT INTO videos (video_name, fps, frames, duration) VALUES (%s, %s, %s, %s)"
+    val = (video_file, fps, total_frames, video_duration)
+    mycurser.execute(sql, val)
+
+# get the video id from the database
+mycurser.execute("SELECT video_id FROM videos WHERE video_name = %s", (video_file,))
+viedo_id = mycurser.fetchall()[0][0]
+print(f"video id: {viedo_id}")
+
+
+print(datetime.datetime.now())
+sql = "INSERT INTO sessions (start, video_id) VALUES (%s, %s)"
+val = (datetime.datetime.now(), viedo_id)
+mycurser.execute(sql, val)
+
+mydb.commit()
+
+mycurser.execute("SELECT last_insert_id()")
+
+session_id = mycurser.fetchall()[0][0]
+
+print(session_id)
+
+# liust for the database
+db_session_id = []
+db_frame_count = []
+db_field_center_x = []
+db_field_center_y = []
+db_time = []
+
+start_time = datetime.datetime.now()
+print(f"start time: {start_time}")
 
 while True:
     # Capture frame-by-frame
@@ -85,7 +223,9 @@ while True:
     #print(valid_line)
     #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
     #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-    field_image, field_found, field_moved, x, y = field_detection.fielDetection(image=thresh, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width)
+    field_image, field_found, field_moved, x, y = field_detection.fielDetection(
+        image=thresh, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width
+        )
     #print(upper_line)
     #x = [1000]
     #y = [200]
@@ -137,8 +277,6 @@ while True:
         x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
         y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
 
-
-
     thresh = cv.cvtColor(thresh, cv.COLOR_GRAY2RGB)
     for x_point, y_point in zip(x, y):
         thresh = cv.circle(thresh, (x_point,y_point), radius=3, color=(0,0,255), thickness=2)
@@ -148,20 +286,86 @@ while True:
     #print(thresh[0,0])
 
     # Display the resulting frame
-    #cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
-    #cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
-    cv.imshow("frame", field_image)
+    cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
+    cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
+    cv.imshow("frame", thresh)
+
+    if field_found:
+        db_session_id.append(session_id)
+        db_frame_count.append(frame_count)
+        db_field_center_x.append(x[14])
+        db_field_center_y.append(y[14])
+        db_time.append(datetime.datetime.now())
+        # save the end time in the database
+        """
+        sql = "INSERT INTO positions (session_id, position_id, field_center_x, field_center_y, time) VALUES (%s, %s, %s, %s, %s)"
+        val = (session_id, frame_count, x[14], y[14], datetime.datetime.now())
+        mycurser.execute(sql, val)
+
+        mydb.commit()
+        """
+
 
     # stop the loop if the "q" key on the keyboard is pressed 
     if cv.waitKey(1) == ord("q"):
         break
 
-duration = time.time() - start_time
+end_time = datetime.datetime.now()
+
+duration = end_time - start_time
+duration = duration.total_seconds()
 
 average_fps = frame_count / duration
 
-print(f"\nduration: \n{time.time() - start_time}s")
+print(f"\nduration: \n{duration}s")
 print(f"\naverage fps: \n{average_fps}")
+
+# save the end time in the database
+sql = "UPDATE sessions SET end = (%s) WHERE session_id = (%s)"
+val = (datetime.datetime.now(), session_id)
+mycurser.execute(sql, val)
+
+mydb.commit()
+
+# convert the data into the needed format
+val = []
+for session_id_loop, frame_count_loop, x_loop, y_loop, time_loop in zip(db_session_id, db_frame_count, db_field_center_x, db_field_center_y, db_time):
+    val.append((session_id_loop, frame_count_loop, x_loop, y_loop, time_loop))
+
+# save the data in the database
+sql = "INSERT INTO positions (session_id, position_id, field_center_x, field_center_y, time) VALUES (%s, %s, %s, %s, %s)"
+mycurser.executemany(sql, val)
+
+mydb.commit()
+
+# print the video table
+mycurser.execute("SELECT * FROM videos")
+results = mycurser.fetchall()
+print("videos:")
+for x in results:
+    print(x)
+print("")
+
+# print the sessions table
+mycurser.execute("SELECT * FROM sessions")
+results = mycurser.fetchall()
+print("sessions:")
+for x in results:
+    print(x)
+print("")
+"""
+# print the positions table
+mycurser.execute("SELECT * FROM positions")
+results = mycurser.fetchall()
+print("positions:")
+for x in results:
+    print(x)
+print("")
+"""
+# close the MySQL curser object
+mycurser.close()
+# close the MySQL connection
+mydb.close()
 
 # When everything done, release the capture
 cap.release()
