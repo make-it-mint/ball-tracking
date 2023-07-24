@@ -329,6 +329,46 @@ def ball_tracking(queue):
         #x = [1000]
         #y = [200]
 
+        if field_found and field_moved:
+
+            dx1 = abs(x[14] - x[15])
+            dy1 = abs(y[14] - y[15])
+
+            dx2 = abs(x[19] - x[14])
+            dy2 = abs(y[19] - y[14])
+
+            dx3 = abs(x[20] - x[14])
+            dy3 = abs(y[20] - y[14])
+
+            dx4 = abs(x[14] - x[16])
+            dy4 = abs(y[14] - y[16])
+
+            ipt = 0.78
+
+            rect = np.array([
+                [x[15]-dx1*ipt, y[15]-dy1*ipt],
+                [x[19]+dx2*ipt, y[19]-dy2*ipt],
+                [x[20]+dx3*ipt, y[20]+dy3*ipt],
+                [x[16]-dx4*ipt, y[16]+dy4*ipt]],
+                dtype="float32"
+                )
+
+            dst = np.array([
+                [0,0],
+                [video_width, 0],
+                [video_width, video_height],
+                [0, video_height]],
+                dtype="float32"
+            )
+
+            M = cv.getPerspectiveTransform(rect, dst)
+            warped = cv.warpPerspective(frame, M, (video_width, video_height), flags=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
+        elif field_found:
+            warped = cv.warpPerspective(frame, M, (video_width, video_height), flags=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
+        else:
+            warped = thresh
+        #warped = frame
+
         # save points history
         # check if the field is found and has moved
         if field_found and field_moved:
@@ -387,7 +427,7 @@ def ball_tracking(queue):
         # Display the resulting frame
         cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
         cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
-        cv.imshow("frame", thresh)
+        cv.imshow("frame", warped)
 
         if field_found:
             """db_session_id.append(session_id)
@@ -454,3 +494,4 @@ if __name__ == "__main__":
     # wait for the processes to finish
     db_process.join()
     bt_process.join()
+
