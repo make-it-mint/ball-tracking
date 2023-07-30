@@ -146,7 +146,7 @@ def threshold(frame, back_sub, cap):
 
     return resized, contours
 
-def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_fr_mid, y_ball_fr_mid, x_left, x_right, y_upper, y_lower):
+def matlabDetection(frame, frame_imbinarized, background_inverted, x_ball_fr_mid, y_ball_fr_mid, x_left, x_right, y_upper, y_lower):
 
     ## combinig the imbinarized frame with the inverted one
     first_frame_combined = cv.bitwise_and(frame_imbinarized, background_inverted)
@@ -156,7 +156,7 @@ def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_f
     kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (13, 13))
 
     vid_erosion = cv.erode(first_frame_combined_cor, kernel, iterations=1)
-    vid_dilation = cv.dilate(vid_erosion, kernel, iterations=3)
+    vid_dilation = cv.dilate(vid_erosion, kernel, iterations=2)
 
     ## finding the ball / encircle the ball 
     ## find contours
@@ -218,10 +218,6 @@ def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_f
     dim = (width, height)
 
     resized = cv.resize(vid_draw, dim, interpolation = cv.INTER_AREA)
-
-    cv.rectangle(resized, (10, 2), (100,20), (255,255,255), -1)
-    cv.putText(resized, str(cap.get(cv.CAP_PROP_POS_FRAMES)), (15, 15),
-               cv.FONT_HERSHEY_SIMPLEX, 0.5 , (0,0,0))
 
     return resized, con_filtered, ball, x_ball, y_ball, x_mid, y_mid # x_vel, y_vel
 

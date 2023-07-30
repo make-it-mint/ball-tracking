@@ -11,6 +11,7 @@ import multiprocessing
 import pandas as pd
 import ball_tracking_methods
 import time
+import math
 
 import field_detection
 import image_processing
@@ -48,9 +49,9 @@ def save_data_process(queue_in):
     # swwitch to the ball_tracking database
     mycurser.execute("USE ball_tracking")
 
-    #mycurser.execute("DROP TABLE IF EXISTS positions")
-    #mycurser.execute("DROP TABLE IF EXISTS sessions")
-    #mycurser.execute("DROP TABLE IF EXISTS videos")
+    mycurser.execute("DROP TABLE IF EXISTS positions")
+    mycurser.execute("DROP TABLE IF EXISTS sessions")
+    mycurser.execute("DROP TABLE IF EXISTS videos")
 
     # create a table for video informations if it doesn't exist
     mycurser.execute(
@@ -86,6 +87,8 @@ def save_data_process(queue_in):
         ball_y INT, \
         kalman_x INT, \
         kalman_y INT, \
+        velocity_x DOUBLE, \
+        velocity_y DOUBLE, \
         field_center_x INT, \
         field_center_y INT, \
         time DATETIME(6), \
@@ -155,6 +158,7 @@ def save_data_process(queue_in):
 
     while True:
         # get the points data from the queue
+        # (frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_velocity, y_velocity, x[14], y[14], recorded_time)
         while True:
             data = queue_in.get()
             if data is not None:
@@ -167,14 +171,28 @@ def save_data_process(queue_in):
         # convert the data into the needed format
         val = []
         for frame_data in data:
-            val.append((session_id, frame_data[0], frame_data[1], frame_data[2], frame_data[3]))
+            val.append((session_id, frame_data[0], frame_data[1], frame_data[2], frame_data[3], 
+                        frame_data[4], frame_data[5], frame_data[6], frame_data[7], frame_data[8], frame_data[9]))
 
         # save the data in the database
-        sql = "INSERT INTO positions (session_id, position_id, field_center_x, field_center_y, time) VALUES (%s, %s, %s, %s, %s)"
+        sql = "INSERT INTO positions ( \
+            session_id, \
+            position_id, \
+            ball_x, \
+            ball_y, \
+            kalman_x, \
+            kalman_y, \
+            velocity_x, \
+            velocity_y, \
+            field_center_x, \
+            field_center_y, \
+            time) \
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         mycurser.executemany(sql, val)
 
         mydb.commit()
 
+    print("before end time")
     # get the end_time from the queue
     while True:
         end_time = queue_in.get()
@@ -187,7 +205,7 @@ def save_data_process(queue_in):
     mycurser.execute(sql, val)
 
     mydb.commit()
-
+    """
     # print the video table
     mycurser.execute("SELECT * FROM videos")
     results = mycurser.fetchall()
@@ -203,7 +221,7 @@ def save_data_process(queue_in):
     for x in results:
         print(x)
     print("")
-    """
+    
     # print the positions table
     mycurser.execute("SELECT * FROM positions")
     results = mycurser.fetchall()
@@ -230,7 +248,7 @@ def field_detection_process(queue_out):
     if not cap.isOpened():
         print("Cannot open camera or video file")
         # put a STOP string into the queue
-        queue.put("STOP")
+        queue_out.put("STOP")
         return
 
     # get the video fps
@@ -241,7 +259,7 @@ def field_detection_process(queue_out):
     video_duration = total_frames / fps
 
     # put the video informations in the queue
-    queue.put((video_file, fps, total_frames, video_duration))
+    queue_out.put((video_file, fps, total_frames, video_duration))
 
     # print the fps
     print(f"fps: {fps}")
@@ -275,7 +293,7 @@ def field_detection_process(queue_out):
 
     field_found = False
 
-    field_detection.fielDetection(image=thresh, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width)
+    field_detection.fieldDetection(image_color=frame, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold)
 
     # go to a specific frame
     #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
@@ -293,11 +311,6 @@ def field_detection_process(queue_out):
 
     start_time = datetime.datetime.now()
 
-    # put the start time into the queue
-    queue.put(start_time)
-
-    print(f"start time: {start_time}")
-
     while True:
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -307,8 +320,6 @@ def field_detection_process(queue_out):
         if not ret:
             print("Can't recive frame (stream end?). Exiting ...")
             break
-
-        frame_count += 1
 
         # Our operations on the frame come here
         gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -325,14 +336,14 @@ def field_detection_process(queue_out):
         #print(valid_line)
         #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
         #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-        field_image, field_found, field_moved, x, y = field_detection.fielDetection(
-            image=thresh, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width
+        field_image, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+            image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
             )
         #print(upper_line)
         #x = [1000]
         #y = [200]
 
-        if field_found and field_moved:
+        """if field_found and field_moved:
 
             dx1 = abs(x[14] - x[15])
             dy1 = abs(y[14] - y[15])
@@ -369,8 +380,8 @@ def field_detection_process(queue_out):
         elif field_found:
             warped = cv.warpPerspective(frame, M, (video_width, video_height), flags=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
         else:
-            warped = thresh
-        #warped = frame
+            warped = thresh"""
+        warped = frame
 
         # save points history
         # check if the field is found and has moved
@@ -428,9 +439,9 @@ def field_detection_process(queue_out):
         #print(thresh[0,0])
 
         # Display the resulting frame
-        cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
-        cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
-        cv.imshow("frame", warped)
+        #cv.namedWindow("frame", cv.WND_PROP_FULLSCREEN)
+        #cv.setWindowProperty("frame",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
+        #cv.imshow("frame", warped)
 
         if field_found:
             """db_session_id.append(session_id)
@@ -439,8 +450,19 @@ def field_detection_process(queue_out):
             db_field_center_y.append(y[14])
             db_time.append(datetime.datetime.now())"""
 
+            """print(f"ly1: {y[18] - y[17]}")
+            print(f"ly2: {y[16] - y[15]}")
+            print(f"ly3: {y[20] - y[19]}")
+            print(f"ly4: {y[22] - y[21]}")
+
+            print(f"lx1: {x[14] - (x[17]+x[18])/2}")
+            print(f"lx2: {x[14] - (x[15]+x[16])/2}")
+            print(f"lx3: {(x[19]+x[20])/2 - x[14]}")
+            print(f"lx4: {(x[21]+x[22])/2 - x[14]}")"""
+
             # save the data into a list
-            data.append((frame_count, x[14], y[14], datetime.datetime.now()))
+            # (frame, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
+            data = (frame, frame_count, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
 
             # save the end time in the database
             """
@@ -450,25 +472,23 @@ def field_detection_process(queue_out):
 
             mydb.commit()
             """
-            if len(data) >= 500:
-                # put the point data into the queue
-                queue.put(data)
-                # clear the data list
-                data = []
+            queue_out.put(data)
+            
+            # put the point data into the queue
+        #else:
+            #data = (frame, field_found, field_moved, round(video_width/2), round(video_height/2), x_left, x_right, y_lower, y_upper)
+        #queue_out
 
         # stop the loop if the "q" key on the keyboard is pressed 
         if cv.waitKey(1) == ord("q"):
             break
+
+        frame_count += 1
     
-    # put the point data into the queue
-    queue.put(data)
     # put a STOP string into the queue
-    queue.put("STOP")
+    queue_out.put("STOP")
 
     end_time = datetime.datetime.now()
-
-    # put the end time into the queue
-    queue.put(end_time)
 
     duration = end_time - start_time
     duration = duration.total_seconds()
@@ -505,19 +525,33 @@ def ball_tracking_process(queue_in, queue_out):
     ## video capturing from video file or camera
     ## to read a video file insert the file name
     ## for a camera insert an integer depending on the camera port
-    cap = cv.VideoCapture("Test-Videos/ball_tracking_test.MP4")
+    #cap = cv.VideoCapture("Test-Videos/ball_tracking_test.MP4")
 
     # import csv compare ball tracking data
     csv = pd.read_csv("X_und_Y_Positionen_des_Balles_Video_ball_tracking_test.csv")
 
-    fps = cap.get(cv.CAP_PROP_FPS)
+    # get the video file informations from the queue (video_file, fps, total_frames, video_duration)
+    while True:
+        video_informations = queue_in.get()
+        if video_informations is not None:
+            break
+        elif video_informations == "STOP":
+            queue_out.put("STOP")
+            return
+        
+    # put the video informations in the queue
+    queue_out.put(video_informations)
+
+    fps = video_informations[1]
+
+    #fps = cap.get(cv.CAP_PROP_FPS)
     # cap.set(cv.CAP_PROP_POS_FRAMES, fps * 57) # start video by sek 57
     print(fps)
 
     ## Video soll in der richtigen Geschwindigkeit abgespielt werden / Wie viele millisekunden braucht ein einzelner Frame (querwert = Zeit in millisekunden)
     frame_time = int(1000/fps)
 
-    ## start of manual background subtraction for a better motion detection 
+    """## start of manual background subtraction for a better motion detection 
     ## memorizing the first frame of the video
     ret, first_frame = cap.read()
     ## changing the color of the frist frame into gray tones
@@ -525,25 +559,7 @@ def ball_tracking_process(queue_in, queue_out):
     ## changing the color into back and white
     _, first_frame_imbinarized = cv.threshold(first_frame_gray_vid, 180, 255, cv.THRESH_BINARY)
     ## imcomplement the first frame 
-    first_frame_imbinarized_inverted = cv.bitwise_not(first_frame_imbinarized)
-
-    ## exit the programm if the camera cannot be oppend, or the video file cannot be read
-    if not cap.isOpened():
-        print("Cannot open camera or video file")
-        exit()
-    else:
-        _, frame_ip = cap.read()
-        threshold_ip = image_processing.findTreshold(image = frame_ip)
-
-        ## get the width and height of the video
-        video_width = int(cap.get(3))
-        video_height = int(cap.get(4))
-        ## reduce the video width and heigth to match the max index
-        video_height -= 1
-        video_width -= 1
-
-        cap.set(cv.CAP_PROP_POS_FRAMES, 0)
-
+    first_frame_imbinarized_inverted = cv.bitwise_not(first_frame_imbinarized)"""
 
     x = []
     y = []
@@ -555,7 +571,6 @@ def ball_tracking_process(queue_in, queue_out):
     y_average = []
 
     field_found = False
-
 
     ## background subtraction
     # back_sub = cv.createBackgroundSubtractorMOG2()
@@ -576,12 +591,7 @@ def ball_tracking_process(queue_in, queue_out):
     x_ball_fr_mid = 960 
     y_ball_fr_mid = 540
 
-    ## clicking the center auf the ball 
-    cv.namedWindow("resized", cv.WND_PROP_FULLSCREEN)
-    # cv.setMouseCallback("frame",draw_circle)
-    cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
-
-    frame_count = 0
+    #frame_count = 0
 
     ## variabel i for right detection 
     i = 0
@@ -605,75 +615,44 @@ def ball_tracking_process(queue_in, queue_out):
 
     kf_update = 10
 
-    fourcc = cv.VideoWriter_fourcc(*'XVID')
-    out = cv.VideoWriter('output.avi', fourcc, 30.0, (1920, 1080))
+    """fourcc = cv.VideoWriter_fourcc(*'XVID')
+    out = cv.VideoWriter('output.avi', fourcc, 30.0, (1920, 1080))"""
+
+    data = []
+
+    start_time = datetime.datetime.now()
+
+    # put the start time into the queue
+    queue_out.put(start_time)
+
+    print(f"start time: {start_time}")
 
     while True:
-        ## Capture frame-by-frame
-        ret, frame = cap.read()
+        
+        # get the video file informations from the queue 
+        # (frame, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
+        while True:
+            frame_informations = queue_in.get()
+            
+            if video_informations is not None:
+                break
 
-        ## if frame is read correctly ret is True
-        ## stop the loop when the frame is not read correctly
-        if not  ret:
-            print("Can't recive frame (stream end?). Exiting ...")
+        if frame_informations == "STOP":
+            print("STOP")
             break
+        
+        #print(frame_informations)
 
-        field_image, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
-            image_color = frame, 
-            x_old = x_average,
-            y_old = y_average,
-            field_found = field_found,
-            video_height = video_height,
-            video_width = video_width,
-            threshold = threshold_ip
-        )
-
-        ## save points history
-        ## check if the field is found and has moved
-        if field_found and field_moved:
-            # delete the old history
-            x_old_points = []
-            y_old_points = []
-
-            ## save the new points of the field
-            x_old_points.append(x)
-            y_old_points.append(y)
-
-            ## set the average variable to the new points
-            x_average = x_old_points[0]
-            y_average = y_old_points[0]
-
-        ## check if the field ist found and if less than a certain amount of points are saved
-        elif field_found and len(x_old_points) < 10:
-            # save the new points in the list
-            x_old_points.append(x)
-            y_old_points.append(y)
-
-            ## check if more than one set of points is saved
-            if len(x_old_points) > 1:
-                # calculate the average for every point
-                x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
-                y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
-
-            ## if only one set of points is saved
-            else:
-                # set the average to the one saved set
-                x_average = x_old_points[0]
-                y_average = y_old_points[0]
-
-        ## if the field is found
-        elif field_found:
-            ## delete the oldest set of points
-            x_old_points.pop(0)
-            y_old_points.pop(0)
-
-            ## save the new set of points
-            x_old_points.append(x)
-            y_old_points.append(y)
-
-            ## calculate the average for every point
-            x_average = np.mean(x_old_points, axis = 0, dtype=np.integer)
-            y_average = np.mean(y_old_points, axis = 0, dtype=np.integer)
+        frame = frame_informations[0]
+        frame_count = frame_informations[1]
+        field_found = frame_informations[2]
+        field_moved = frame_informations[3]
+        x = frame_informations[4]
+        y = frame_informations[5]
+        x_left = frame_informations[6]
+        x_right = frame_informations[7]
+        y_lower = frame_informations[8]
+        y_upper = frame_informations[9]
 
         ## changing the color of frame into gray tones
         frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
@@ -706,8 +685,7 @@ def ball_tracking_process(queue_in, queue_out):
         resized, contours, ball, x_ball, y_ball, x_mid, y_mid = ball_tracking_methods.matlabDetection(
             frame = frame, 
             frame_imbinarized = frame_imbinarized,
-            background_inverted = background_inverted, 
-            cap = cap,
+            background_inverted = background_inverted,
             x_ball_fr_mid = (kf_predict[0, 0] + x_ball_fr_mid) / 2,
             y_ball_fr_mid = (kf_predict[1, 0] + y_ball_fr_mid) / 2,
             x_right = x_right,
@@ -764,7 +742,17 @@ def ball_tracking_process(queue_in, queue_out):
             # variabel i for right detection 
             j += 1
 
-        frame_count += 1 
+        #frame_count += 1 
+
+        if len(ball) == 1:
+
+            data = (frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+
+        else:
+            data = (frame, frame_count, None, None, round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+        
+        queue_out.put(data)
+
 
         kf_predict = kf.predict()
         # cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (255,0,0), 2)
@@ -823,17 +811,18 @@ def ball_tracking_process(queue_in, queue_out):
 
         kf_pred_old = kf_predict  
 
-        out.write(frame)     
-
-        ## Display the resulting frame
-        cv.imshow("resized", frame)
-
-        ## stop the loop if the "q" key on the keyboard is pressed 
-        if cv.waitKey(1) == ord("q"):
-            break
+        #out.write(frame)     
 
         x_mid_old = x_ball
         y_mid_old = y_ball 
+
+    # put a STOP string into the queue
+    queue_out.put("STOP")
+
+    end_time = datetime.datetime.now()
+
+    # put the end time into the queue
+    queue_out.put(end_time)
 
     # detection of the ball percentage
     detect_perc = (i * 100) / frame_count
@@ -843,10 +832,9 @@ def ball_tracking_process(queue_in, queue_out):
     detect_perc_kalman = (j * 100) / frame_count
     print(f"Die Ballerkennungsrate mit dem Klaman Filter liegt bei {detect_perc_kalman}%.")
 
-    # stop time - comparing the times how long a algorthm takes to go through the video 
-    end_time = time.time()
+    # stop time - comparing the times how long a algorthm takes to go through the video
     elasped_time = end_time - start_time
-    print(f"Die Ausführung des Videos hat {elasped_time}s gedauert.")
+    print(f"Die Ausführung des Videos hat {elasped_time.total_seconds()}s gedauert.")
 
     # kernel_size.append(xk)
     # time_rate.append(elasped_time)
@@ -856,8 +844,8 @@ def ball_tracking_process(queue_in, queue_out):
     # pixel_detection.append(pxc)
 
     ## When everything done, release the capture
-    cap.release()
-    out.release()
+    #cap.release()
+    #out.release()
     cv.destroyAllWindows()
 
     ## create data frame
@@ -866,19 +854,288 @@ def ball_tracking_process(queue_in, queue_out):
     ## save data frame as cvs data
     # df.to_csv("Erkennungsdaten_eigene_backgroundsubstraction_2.csv")
 
+def data_process(queue_in, queue_out):
+    """
+    function for the data process
+    """
+
+    # get the video file informations from the queue (video_file, fps, total_frames, video_duration)
+    while True:
+        video_informations = queue_in.get()
+        if video_informations is not None:
+            break
+        elif video_informations == "STOP":
+            queue_out.put("STOP")
+            return
+        
+    fps = video_informations[1]
+    frame_time = 1 / fps
+        
+    # put the video informations in the queue
+    queue_out.put(video_informations)
+
+    # get the start time from the queue
+    while True:
+        start_time = queue_in.get()
+        if video_informations is not None:
+            break
+
+    # put the start time into the queue
+    queue_out.put(start_time)
+
+    data = []
+    x_ball_old = None
+    y_ball_old = None
+    vel_list = []
+    show_vel = 0
+
+    ## clicking the center auf the ball 
+    cv.namedWindow("resized", cv.WND_PROP_FULLSCREEN)
+    # cv.setMouseCallback("frame",draw_circle)
+    cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
+
+    while True:
+
+        # get the video file informations from the queue 
+        # (frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+        while True:
+            frame_informations = queue_in.get()
+            if video_informations is not None:
+                break
+        
+        if frame_informations == "STOP":
+            print("STOP")
+            break
+
+        frame = frame_informations[0]
+        frame_count = frame_informations[1]
+        x_ball = frame_informations[2]
+        y_ball = frame_informations[3]
+        kf_predict_x = frame_informations[4]
+        kf_predict_y = frame_informations[5]
+        x = frame_informations[6]
+        y = frame_informations[7]
+        recorded_time = frame_informations[8]
+
+        if x_ball is not None and y_ball is not None:
+            x_position = x_ball
+            y_position = y_ball
+        else:
+            x_position = kf_predict_x
+            y_position = kf_predict_y
+
+        
+        x_position_centered = x_position - x[14]
+        y_position_centered = y_position - y[14]
+
+        x_mid_16_17 = round((x[15] + x[16]) /2)
+        x_mid_20_21 = round((x[19] + x[20]) /2)
+
+        x_mid_18_19 = round((x[17] + x[18]) /2)
+        x_mid_22_23 = round((x[21] + x[22]) /2)
+
+        y_mid_16_20 = round((y[15] + y[19]) /2)
+        y_mid_17_21 = round((y[16] + y[20]) /2)
+
+        y_mid_18_22 = round((y[17] + y[21]) /2)
+        y_mid_19_23 = round((y[16] + y[22]) /2)
+
+
+        y_diff_18_19 = y[18] - y[17]
+        y_diff_22_23 = y[22] - y[21]
+
+        y_diff_16_17 = y[16] - y[15]
+        y_diff_20_21 = y[20] - y[19]
+
+        y_diff_5_13 = y[12] - y[4]
+
+        x_diff_16_20 = x[19] - x[15]
+        x_diff_18_22 = x[21] - x[17]
+
+        x_diff_mid = x_mid_22_23 - x_mid_18_19
+
+        x_diff_19_23 = x[22] - x[18]
+        x_diff_17_21 = x[20] - x[16]
+
+        
+
+        x_diff_16_17_20_21 = x_mid_20_21 - x_mid_16_17
+
+
+        m1 = ((y_diff_16_17 - y_diff_20_21) / 2) / x_diff_16_17_20_21
+
+        # conversion factor
+        y_conv_factor_18_19 = 262 / y_diff_18_19
+        y_conv_factor_16_17 = 395 / y_diff_16_17
+
+        y_conv_factor_5_13 = 671 / y_diff_5_13
+
+        y_conv_factor_20_21 = 395 / y_diff_20_21
+        y_conv_factor_22_23 = 262 / y_diff_22_23
+
+        x_conv_factor_16_20 = 640 / x_diff_16_20
+        x_conv_factor_18_22 = 918 / x_diff_18_22
+
+        x_conv_factor_center = 918 / x_diff_mid
+
+        x_conv_factor_19_23 = 918 / x_diff_19_23
+        x_conv_factor_17_21 = 640 / x_diff_17_21
+
+
+
+        # find the conversion vector for the y coordinate
+        if x_position <= x_mid_16_17:
+            x_sector_position = abs(x_position_centered) - (x[14] - x_mid_16_17)
+            x_sector_width = x_mid_16_17 - x_mid_18_19
+            y_conv_factor = y_conv_factor_16_17 + (y_conv_factor_18_19 - y_conv_factor_16_17) * (x_sector_position / x_sector_width)
+
+        elif x_position >= x_mid_16_17 and x_position <= x[14]:
+            x_sector_position = abs(x_position_centered)
+            x_sector_width = x[14] - x_mid_16_17
+            y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_16_17 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
+
+        elif x_position >= x[14] and x_position <= x_mid_20_21:
+            x_sector_position = abs(x_position_centered)
+            x_sector_width = x_mid_20_21 - x[14]
+            y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_20_21 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
+        
+        elif x_position >= x_mid_20_21:
+            x_sector_position = abs(x_position_centered) - (x_mid_20_21 - x[14])
+            x_sector_width = x_mid_22_23 - x_mid_20_21
+            y_conv_factor = y_conv_factor_20_21 + (y_conv_factor_22_23 - y_conv_factor_20_21) * (x_sector_position / x_sector_width)
+
+        # find the conversion vector for the x coordinate
+        if y_position <= y_mid_18_22:
+            y_sector_position = abs(y_position_centered) - (y[14] - y_mid_18_22)
+            y_sector_width = y_mid_18_22 - y_mid_16_20
+            x_conv_factor = x_conv_factor_18_22 + (x_conv_factor_16_20 - x_conv_factor_18_22) * (y_sector_position / y_sector_width)
+        
+        elif y_position >= y_mid_18_22 and y_position <= y[14]:
+            y_sector_position = abs(y_position_centered)
+            y_sector_width = y[14] - y_mid_18_22
+            x_conv_factor = x_conv_factor_center + (x_conv_factor_18_22 - x_conv_factor_center) * (y_sector_position / y_sector_width)
+
+        elif y_position >= y[14] and y_position <= y_mid_19_23:
+            y_sector_position = abs(y_position_centered)
+            y_sector_width = y_mid_19_23 - y[14]
+            x_conv_factor = x_conv_factor_center + (x_conv_factor_19_23 - x_conv_factor_center) * (y_sector_position / y_sector_width)
+
+        elif y_position >= y_mid_19_23:
+            y_sector_position = abs(y_position_centered) - (y_mid_19_23 - y[14])
+            y_sector_width = y_mid_17_21 - y_mid_19_23
+            x_conv_factor = x_conv_factor_19_23 + (x_conv_factor_17_21 - x_conv_factor_19_23) * (y_sector_position / y_sector_width)
+
+        
+        x_ball_real = x_position_centered * x_conv_factor
+        y_ball_real = y_position_centered * y_conv_factor
+
+        #print(f"x: {x_ball_real}")
+        #print(f"y: {y_ball_real}")
+
+        if x_ball_old is not None and y_ball_old is not None:
+            x_ball_diff = x_ball_real - x_ball_old
+            y_ball_diff = y_ball_real - y_ball_old
+
+            """Video"""
+            # velocity in m/s
+            x_velocity = x_ball_diff / frame_time / 1000
+            y_velocity = y_ball_diff / frame_time / 1000
+            ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
+
+
+            """Live"""
+            """
+            time_delta = recorded_time - recorded_time_old
+            x_velocity = x_ball_diff * time_delta.total_seconds() / 1000
+            y_velocity = y_ball_diff * time_delta.total_seconds() / 1000
+            ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
+            """
+        else:
+            x_velocity = None
+            y_velocity = None
+            ball_velocity = 0.
+            
+
+
+
+
+        x_ball_old = x_ball_real
+        y_ball_old = y_ball_real
+        recorded_time_old = recorded_time
+
+
+        data.append((frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_velocity, y_velocity, x[14], y[14], recorded_time))
+
+        if len(data) >= 500:
+            queue_out.put(data)
+            data = []
+
+
+        vel_list.append(ball_velocity)
+
+        if len(vel_list) >= 60:
+            show_vel = max(vel_list)
+            vel_list = [] 
+
+
+        cv.rectangle(frame, (10, 2), (300,40), (255,255,255), -1)
+        cv.putText(frame, f"velocity: {round(show_vel * 3.6)}km/h", (15, 35),
+               cv.FONT_HERSHEY_SIMPLEX, 1 , (0,0,0))
+
+
+
+        ## Display the resulting frame
+        cv.imshow("resized", frame)
+
+        ## stop the loop if the "q" key on the keyboard is pressed 
+        if cv.waitKey(1) == ord("q"):
+            break
+
+    # put the point data into the queue
+    queue_out.put(data)
+    # put a STOP string into the queue
+    queue_out.put("STOP")
+    
+    while True:
+        end_time = queue_in.get()
+        if video_informations is not None:
+            break
+    
+    queue_out.put(end_time)
+
+
+
+
 
 if __name__ == "__main__":
     # create the queue to send data from one process to the other
-    queue = multiprocessing.Queue()
+    queue_db = multiprocessing.Queue()
+    queue_field = multiprocessing.Queue()
+    queue_data = multiprocessing.Queue()
 
     # create the procces to save the data into the database and start it
-    db_process = multiprocessing.Process(target=save_data_process, args=(queue,))
+    db_process = multiprocessing.Process(target=save_data_process, args=(queue_db,))
     db_process.start()
 
+    # create the data process and start it
+    da_process = multiprocessing.Process(target=data_process, args=(queue_data, queue_db))
+    da_process.start()
+
     # create the ball tracking process and start it
-    bt_process = multiprocessing.Process(target=field_detection_process, args=(queue,))
+    bt_process = multiprocessing.Process(target=ball_tracking_process, args=(queue_field, queue_data))
     bt_process.start()
+
+    # create the field detection process and start it
+    fd_process = multiprocessing.Process(target=field_detection_process, args=(queue_field,))
+    fd_process.start()
 
     # wait for the processes to finish
     db_process.join()
+    print("process1 done")
+    da_process.join()
+    print("process2 done")
+    fd_process.join()
+    print("process3 done")
     bt_process.join()
+    print("process4 done")
+    
