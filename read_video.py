@@ -49,9 +49,9 @@ def save_data_process(queue_in):
     # swwitch to the ball_tracking database
     mycurser.execute("USE ball_tracking")
 
-    mycurser.execute("DROP TABLE IF EXISTS positions")
-    mycurser.execute("DROP TABLE IF EXISTS sessions")
-    mycurser.execute("DROP TABLE IF EXISTS videos")
+    #mycurser.execute("DROP TABLE IF EXISTS positions")
+    #mycurser.execute("DROP TABLE IF EXISTS sessions")
+    #mycurser.execute("DROP TABLE IF EXISTS videos")
 
     # create a table for video informations if it doesn't exist
     mycurser.execute(
@@ -888,6 +888,10 @@ def data_process(queue_in, queue_out):
     y_ball_old = None
     vel_list = []
     show_vel = 0
+    x_vel_list = []
+    x_show_vel = 0
+    y_vel_list = []
+    y_show_vel = 0
 
     ## clicking the center auf the ball 
     cv.namedWindow("resized", cv.WND_PROP_FULLSCREEN)
@@ -895,7 +899,7 @@ def data_process(queue_in, queue_out):
     cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
 
     while True:
-
+        start_time = datetime.datetime.now()
         # get the video file informations from the queue 
         # (frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
         while True:
@@ -1055,14 +1059,9 @@ def data_process(queue_in, queue_out):
             y_velocity = None
             ball_velocity = 0.
             
-
-
-
-
         x_ball_old = x_ball_real
         y_ball_old = y_ball_real
         recorded_time_old = recorded_time
-
 
         data.append((frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_velocity, y_velocity, x[14], y[14], recorded_time))
 
@@ -1071,24 +1070,49 @@ def data_process(queue_in, queue_out):
             data = []
 
 
-        vel_list.append(ball_velocity)
+        
 
-        if len(vel_list) >= 60:
+        """if len(vel_list) >= 60:
             show_vel = max(vel_list)
-            vel_list = [] 
+            vel_list = []""" 
+        if x_velocity is not None and y_velocity is not None:
+            if len(vel_list) < 5:
+                vel_list.append(ball_velocity)
+                show_vel = np.mean(vel_list)
+                x_vel_list.append(x_velocity)
+                x_show_vel = np.mean(x_vel_list)
+                y_vel_list.append(y_velocity)
+                y_show_vel = np.mean(y_vel_list)
+            else:
+                vel_list.pop(0)
+                vel_list.append(ball_velocity)
+                show_vel = np.mean(vel_list)
+                x_vel_list.pop(0)
+                x_vel_list.append(x_velocity)
+                x_show_vel = np.mean(x_vel_list)
+                y_vel_list.pop(0)
+                y_vel_list.append(y_velocity)
+                y_show_vel = np.mean(y_vel_list)
 
+        
+            start_point = (x_position, y_position)
+            end_point = (round(x_position+x_show_vel*50), round(y_position+y_show_vel*50))
+            cv.line(frame, start_point, end_point, (255,0,0), 2)
 
-        cv.rectangle(frame, (10, 2), (300,40), (255,255,255), -1)
-        cv.putText(frame, f"velocity: {round(show_vel * 3.6)}km/h", (15, 35),
+        cv.rectangle(frame, (10, 2), (350,45), (255,255,255), -1)
+        cv.putText(frame, f"velocity: {round(show_vel, 2)} m/s", (15, 35),
                cv.FONT_HERSHEY_SIMPLEX, 1 , (0,0,0))
-
-
 
         ## Display the resulting frame
         cv.imshow("resized", frame)
+        time_delta = datetime.datetime.now() - start_time
+
+        wait_time = round((frame_time - time_delta.total_seconds())*1000)
+        if wait_time < 1:
+            wait_time = 1
 
         ## stop the loop if the "q" key on the keyboard is pressed 
-        if cv.waitKey(1) == ord("q"):
+        if cv.waitKey(wait_time) == ord("q"):
             break
 
     # put the point data into the queue
@@ -1102,10 +1126,6 @@ def data_process(queue_in, queue_out):
             break
     
     queue_out.put(end_time)
-
-
-
-
 
 if __name__ == "__main__":
     # create the queue to send data from one process to the other
@@ -1131,11 +1151,11 @@ if __name__ == "__main__":
 
     # wait for the processes to finish
     db_process.join()
-    print("process1 done")
+    print("process 1 done")
     da_process.join()
-    print("process2 done")
+    print("process 2 done")
     fd_process.join()
-    print("process3 done")
+    print("process 3 done")
     bt_process.join()
-    print("process4 done")
+    print("process 4 done")
     
