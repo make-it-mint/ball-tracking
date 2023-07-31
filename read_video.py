@@ -12,6 +12,7 @@ import pandas as pd
 import ball_tracking_methods
 import time
 import math
+import queue
 
 import field_detection
 import image_processing
@@ -196,7 +197,7 @@ def save_data_process(queue_in):
     # get the end_time from the queue
     while True:
         end_time = queue_in.get()
-        if end_time is not None:
+        if end_time is not None and isinstance(end_time, datetime.datetime):
             break
 
     # save the end time in the database
@@ -235,7 +236,7 @@ def save_data_process(queue_in):
     # close the MySQL connection
     mydb.close()
 
-def field_detection_process(queue_out):
+def field_detection_process(queue_out, queue_stop):
 
     video_file = "ball_tracking_test.mp4"
 
@@ -312,6 +313,14 @@ def field_detection_process(queue_out):
     start_time = datetime.datetime.now()
 
     while True:
+        try:
+            stop_signal = queue_stop.get(block = False)
+        except queue.Empty:
+            stop_signal = None
+
+
+        if stop_signal == "STOP":
+            break
         # Capture frame-by-frame
         ret, frame = cap.read()
 
@@ -502,7 +511,7 @@ def field_detection_process(queue_out):
     cap.release()
     cv.destroyAllWindows()
 
-def ball_tracking_process(queue_in, queue_out):
+def ball_tracking_process(queue_in, queue_out, queue_stop):
     """
     function for the ball detection process
     """
@@ -628,6 +637,15 @@ def ball_tracking_process(queue_in, queue_out):
     print(f"start time: {start_time}")
 
     while True:
+
+        try:
+            stop_signal = queue_stop.get(block = False)
+        except queue.Empty:
+            stop_signal = None
+
+
+        if stop_signal == "STOP":
+            break
         
         # get the video file informations from the queue 
         # (frame, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
@@ -816,6 +834,7 @@ def ball_tracking_process(queue_in, queue_out):
         x_mid_old = x_ball
         y_mid_old = y_ball 
 
+    
     # put a STOP string into the queue
     queue_out.put("STOP")
 
@@ -854,7 +873,7 @@ def ball_tracking_process(queue_in, queue_out):
     ## save data frame as cvs data
     # df.to_csv("Erkennungsdaten_eigene_backgroundsubstraction_2.csv")
 
-def data_process(queue_in, queue_out):
+def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
     """
     function for the data process
     """
@@ -1069,9 +1088,6 @@ def data_process(queue_in, queue_out):
             queue_out.put(data)
             data = []
 
-
-        
-
         """if len(vel_list) >= 60:
             show_vel = max(vel_list)
             vel_list = []""" 
@@ -1113,6 +1129,8 @@ def data_process(queue_in, queue_out):
 
         ## stop the loop if the "q" key on the keyboard is pressed 
         if cv.waitKey(wait_time) == ord("q"):
+            queue_stop1.put("STOP")
+            queue_stop2.put("STOP")
             break
 
     # put the point data into the queue
@@ -1122,7 +1140,7 @@ def data_process(queue_in, queue_out):
     
     while True:
         end_time = queue_in.get()
-        if video_informations is not None:
+        if video_informations is not None and isinstance(end_time, datetime.datetime):
             break
     
     queue_out.put(end_time)
@@ -1132,21 +1150,23 @@ if __name__ == "__main__":
     queue_db = multiprocessing.Queue()
     queue_field = multiprocessing.Queue()
     queue_data = multiprocessing.Queue()
+    queue_stop1 = multiprocessing.Queue()
+    queue_stop2 = multiprocessing.Queue()
 
     # create the procces to save the data into the database and start it
     db_process = multiprocessing.Process(target=save_data_process, args=(queue_db,))
     db_process.start()
 
     # create the data process and start it
-    da_process = multiprocessing.Process(target=data_process, args=(queue_data, queue_db))
+    da_process = multiprocessing.Process(target=data_process, args=(queue_data, queue_db, queue_stop1, queue_stop2))
     da_process.start()
 
     # create the ball tracking process and start it
-    bt_process = multiprocessing.Process(target=ball_tracking_process, args=(queue_field, queue_data))
+    bt_process = multiprocessing.Process(target=ball_tracking_process, args=(queue_field, queue_data, queue_stop2))
     bt_process.start()
 
     # create the field detection process and start it
-    fd_process = multiprocessing.Process(target=field_detection_process, args=(queue_field,))
+    fd_process = multiprocessing.Process(target=field_detection_process, args=(queue_field, queue_stop1))
     fd_process.start()
 
     # wait for the processes to finish
