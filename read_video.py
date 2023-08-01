@@ -238,7 +238,7 @@ def save_data_process(queue_in):
 
 def field_detection_process(queue_out, queue_stop):
 
-    video_file = "ball_tracking_test.mp4"
+    video_file = "WIN_20230731_18_21_57_Pro.mp4"
 
     # video capturing from video file or camera
     # to read a video file insert the file name
@@ -537,7 +537,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
     #cap = cv.VideoCapture("Test-Videos/ball_tracking_test.MP4")
 
     # import csv compare ball tracking data
-    csv = pd.read_csv("X_und_Y_Positionen_des_Balles_Video_ball_tracking_test.csv")
+    #csv = pd.read_csv("X_und_Y_Positionen_des_Balles_Video_ball_tracking_test.csv")
 
     # get the video file informations from the queue (video_file, fps, total_frames, video_duration)
     while True:
@@ -675,7 +675,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
         ## changing the color of frame into gray tones
         frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         ## imbinarize frame 
-        _, frame_imbinarized = cv.threshold(frame_gray, 180, 1, cv.THRESH_BINARY)
+        _, frame_imbinarized = cv.threshold(frame_gray, 170, 1, cv.THRESH_BINARY)
 
         ## if loop which saves the 50 first frames in a list and updates the list ever 30 frames (1 sek)
         if len(frame_list) < 50: 
@@ -746,10 +746,10 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
         # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
         # kf_predict = kf.predict()
         cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
-        cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (127,0,125), 2)
+        #cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (127,0,125), 2)
 
         ## calculating the failsure percentage 
-        if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
+        """if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
             # variabel i for right detection 
             i += 1
         elif abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
@@ -758,7 +758,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
         ## calculating the failsure percentage for kalman
         if abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
             # variabel i for right detection 
-            j += 1
+            j += 1"""
 
         #frame_count += 1 
 
@@ -843,13 +843,13 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
     # put the end time into the queue
     queue_out.put(end_time)
 
-    # detection of the ball percentage
+    """# detection of the ball percentage
     detect_perc = (i * 100) / frame_count
     print(f"Die Ballerkennungsrate liegt bei {detect_perc}%.")
 
     # detection of the ball percentage
     detect_perc_kalman = (j * 100) / frame_count
-    print(f"Die Ballerkennungsrate mit dem Klaman Filter liegt bei {detect_perc_kalman}%.")
+    print(f"Die Ballerkennungsrate mit dem Klaman Filter liegt bei {detect_perc_kalman}%.")"""
 
     # stop time - comparing the times how long a algorthm takes to go through the video
     elasped_time = end_time - start_time
