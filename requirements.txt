@@ -1,4 +1,6 @@
 numpy == 1.24.2
 opencv-python == 4.7.0.72
-pandas == 2.0.2
-numba == 0.57.1
+opencv-contrib-python == 4.7.0.72
+numba == 0.57.1 
+mysql-connector-python == 8.0.33
+python-dotenv == 1.0.0

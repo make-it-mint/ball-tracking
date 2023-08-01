@@ -19,7 +19,7 @@ def findTreshold(image):
     treshold = 255
 
     # numerical integration until the percentage is reached
-    while percentage >= 0.93:
+    while percentage >= 0.90:
         treshold -= 1
         percentage = 1 - sum(hist_normalized[treshold:-1])
 

@@ -501,7 +501,7 @@ def searchLine(image, x, y, line, video_height, video_width):
     alpha = math.atan(abs(x[4]-x[5]) / abs(y[4]-y[5]))
 
     # set the point to search for the second line, depending on the angle and the length of the first line 
-    x_check = round(x_start + math.sin(alpha) * abs(y[4]-y[5]) * 1.3 * direction)
+    x_check = round(x_start - math.sin(alpha) * abs(y[4]-y[5]) * 1.3 * direction)
     y_check = round(y_start + math.cos(alpha) * abs(y[4]-y[5]) * 1.3 * direction)
 
     # check if the points are inside the frame
@@ -1046,10 +1046,14 @@ def fieldDetection(image_color, x_old, y_old, field_found, video_height, video_w
         right_length = right_reference_point - x[14]
 
         x_left = round(left_reference_point - left_length * 0.25)
+        if x_left < 0: x_left = 0
         x_right = round(right_reference_point + right_length * 0.25)
+        if x_right > video_width: x_right = video_width
         
         y_upper = min(y) - 20
+        if y_upper < 0: y_upper = 0
         y_lower = max(y) + 20
+        if y_lower > video_height: y_lower = video_height
     
     else:
         x_left = 0
@@ -1062,7 +1066,7 @@ def fieldDetection(image_color, x_old, y_old, field_found, video_height, video_w
 
 
 
-    return field_image, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper
+    return field_image, image, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper
 
 
 

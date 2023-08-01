@@ -192,6 +192,7 @@ def save_data_process(queue_in):
         mycurser.executemany(sql, val)
 
         mydb.commit()
+        print("data send to database")
 
     print("before end time")
     # get the end_time from the queue
@@ -238,7 +239,7 @@ def save_data_process(queue_in):
 
 def field_detection_process(queue_out, queue_stop):
 
-    video_file = "WIN_20230731_18_21_57_Pro.mp4"
+    video_file = "GX010003.mp4"
 
     # video capturing from video file or camera
     # to read a video file insert the file name
@@ -294,11 +295,12 @@ def field_detection_process(queue_out, queue_stop):
 
     field_found = False
 
-    field_detection.fieldDetection(image_color=frame, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold)
+    #field_detection.fieldDetection(image_color=frame, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold)
 
     # go to a specific frame
     #cap.set(cv.CAP_PROP_POS_FRAMES, 5210)
-    cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+    #cap.set(cv.CAP_PROP_POS_FRAMES, 13000)
+    #cap.set(cv.CAP_PROP_POS_FRAMES, 0)
 
     frame_count = 0
 
@@ -329,11 +331,15 @@ def field_detection_process(queue_out, queue_stop):
         if not ret:
             print("Can't recive frame (stream end?). Exiting ...")
             break
+        
+        if frame is None:
+            frame_count += 1
+            continue
 
         # Our operations on the frame come here
-        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        #gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-        _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
+        #_, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
 
         """x = []
         y = []
@@ -345,7 +351,7 @@ def field_detection_process(queue_out, queue_stop):
         #print(valid_line)
         #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
         #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-        field_image, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+        field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
             image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
             )
         #print(upper_line)
@@ -471,7 +477,7 @@ def field_detection_process(queue_out, queue_stop):
 
             # save the data into a list
             # (frame, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
-            data = (frame, frame_count, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
+            data = (field_found, frame, frame_count, field_moved, x, y, x_left, x_right, y_lower, y_upper)
 
             # save the end time in the database
             """
@@ -484,9 +490,12 @@ def field_detection_process(queue_out, queue_stop):
             queue_out.put(data)
             
             # put the point data into the queue
-        #else:
-            #data = (frame, field_found, field_moved, round(video_width/2), round(video_height/2), x_left, x_right, y_lower, y_upper)
-        #queue_out
+        else:
+            data = (field_found, thresh)
+            queue_out.put(data)
+        
+
+        #cv.imshow("thresh", thresh)
 
         # stop the loop if the "q" key on the keyboard is pressed 
         if cv.waitKey(1) == ord("q"):
@@ -648,7 +657,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
             break
         
         # get the video file informations from the queue 
-        # (frame, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper)
+        # (field_found, frame, frame_count, field_moved, x, y, x_left, x_right, y_lower, y_upper)
         while True:
             frame_informations = queue_in.get()
             
@@ -658,181 +667,189 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
         if frame_informations == "STOP":
             print("STOP")
             break
-        
-        #print(frame_informations)
+        elif frame_informations[0]:
+            #print(frame_informations)
 
-        frame = frame_informations[0]
-        frame_count = frame_informations[1]
-        field_found = frame_informations[2]
-        field_moved = frame_informations[3]
-        x = frame_informations[4]
-        y = frame_informations[5]
-        x_left = frame_informations[6]
-        x_right = frame_informations[7]
-        y_lower = frame_informations[8]
-        y_upper = frame_informations[9]
+            field_found = frame_informations[0]
+            frame = frame_informations[1]
+            frame_count = frame_informations[2]
+            field_moved = frame_informations[3]
+            x = frame_informations[4]
+            y = frame_informations[5]
+            x_left = frame_informations[6]
+            x_right = frame_informations[7]
+            y_lower = frame_informations[8]
+            y_upper = frame_informations[9]
 
-        ## changing the color of frame into gray tones
-        frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        ## imbinarize frame 
-        _, frame_imbinarized = cv.threshold(frame_gray, 170, 1, cv.THRESH_BINARY)
+            ## changing the color of frame into gray tones
+            frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+            ## imbinarize frame 
+            _, frame_imbinarized = cv.threshold(frame_gray, 170, 1, cv.THRESH_BINARY)
 
-        ## if loop which saves the 50 first frames in a list and updates the list ever 30 frames (1 sek)
-        if len(frame_list) < 50: 
-            frame_imbinarized_copy = frame_imbinarized
-            # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
-            while len(frame_list) < 50:
-                frame_list.append(frame_imbinarized_copy)
-            background = sum(frame_list)
-            background[background >= 3] = 255
-            background[background < 3] = 0
-            background_inverted = cv.bitwise_not(background)
-        elif len(frame_list) == 50 and update_frame_list == 9:
-            frame_list.pop(0)
-            frame_imbinarized_copy = frame_imbinarized
-            # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
-            frame_list.append(frame_imbinarized_copy) 
-            update_frame_list = 0
-            background = sum(frame_list)
-            background[background >= 3] = 255
-            background[background < 3] = 0
-            background_inverted = cv.bitwise_not(background)
-        else: 
-            update_frame_list += 1
+            ## if loop which saves the 50 first frames in a list and updates the list ever 30 frames (1 sek)
+            if len(frame_list) < 50: 
+                frame_imbinarized_copy = frame_imbinarized
+                # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
+                while len(frame_list) < 50:
+                    frame_list.append(frame_imbinarized_copy)
+                background = sum(frame_list)
+                background[background >= 3] = 255
+                background[background < 3] = 0
+                background_inverted = cv.bitwise_not(background)
+            elif len(frame_list) == 50 and update_frame_list == 9:
+                frame_list.pop(0)
+                frame_imbinarized_copy = frame_imbinarized
+                # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
+                frame_list.append(frame_imbinarized_copy) 
+                update_frame_list = 0
+                background = sum(frame_list)
+                background[background >= 3] = 255
+                background[background < 3] = 0
+                background_inverted = cv.bitwise_not(background)
+            else: 
+                update_frame_list += 1
 
-        resized, contours, ball, x_ball, y_ball, x_mid, y_mid = ball_tracking_methods.matlabDetection(
-            frame = frame, 
-            frame_imbinarized = frame_imbinarized,
-            background_inverted = background_inverted,
-            x_ball_fr_mid = (kf_predict[0, 0] + x_ball_fr_mid) / 2,
-            y_ball_fr_mid = (kf_predict[1, 0] + y_ball_fr_mid) / 2,
-            x_right = x_right,
-            x_left = x_left,
-            y_upper = y_upper,
-            y_lower = y_lower
-            )
-        
-        cv.circle(frame, (int(x_ball_fr_mid), int(y_ball_fr_mid)), 20, (20,125,35), 2)
-        
-        ## searching for the ball and rembering its last position
-        if len(x_ball_found_remember) and len(y_ball_found_remember) < 10 and len(ball) == 1:
-            x_ball_found_remember.append(x_ball)
-            y_ball_found_remember.append(y_ball)
-            x_ball_fr_mid = round(np.mean(x_ball_found_remember))
-            y_ball_fr_mid = round(np.mean(y_ball_found_remember))
-        elif len(x_ball_found_remember) and len(y_ball_found_remember) > 10 and len(ball) == 1:
-            x_ball_found_remember.pop(0)
-            y_ball_found_remember.pop(0)
-            x_ball_found_remember.append(x_ball)
-            y_ball_found_remember.append(y_ball)
-            x_ball_fr_mid = round(np.mean(x_ball_found_remember))
-            y_ball_fr_mid = round(np.mean(y_ball_found_remember))
-        elif len(ball) == 1:
-            x_ball_found_remember.append(x_ball)
-            y_ball_found_remember.append(y_ball)
-            x_ball_fr_mid = round(np.mean(x_ball_found_remember))
-            y_ball_fr_mid = round(np.mean(y_ball_found_remember))
+            resized, contours, ball, x_ball, y_ball, x_mid, y_mid = ball_tracking_methods.matlabDetection(
+                frame = frame, 
+                frame_imbinarized = frame_imbinarized,
+                background_inverted = background_inverted,
+                x_ball_fr_mid = (kf_predict[0, 0] + x_ball_fr_mid) / 2,
+                y_ball_fr_mid = (kf_predict[1, 0] + y_ball_fr_mid) / 2,
+                x_right = x_right,
+                x_left = x_left,
+                y_upper = y_upper,
+                y_lower = y_lower
+                )
+            
+            cv.circle(frame, (int(x_ball_fr_mid), int(y_ball_fr_mid)), 20, (20,125,35), 2)
+            
+            ## searching for the ball and rembering its last position
+            if len(x_ball_found_remember) and len(y_ball_found_remember) < 10 and len(ball) == 1:
+                x_ball_found_remember.append(x_ball)
+                y_ball_found_remember.append(y_ball)
+                x_ball_fr_mid = round(np.mean(x_ball_found_remember))
+                y_ball_fr_mid = round(np.mean(y_ball_found_remember))
+            elif len(x_ball_found_remember) and len(y_ball_found_remember) > 10 and len(ball) == 1:
+                x_ball_found_remember.pop(0)
+                y_ball_found_remember.pop(0)
+                x_ball_found_remember.append(x_ball)
+                y_ball_found_remember.append(y_ball)
+                x_ball_fr_mid = round(np.mean(x_ball_found_remember))
+                y_ball_fr_mid = round(np.mean(y_ball_found_remember))
+            elif len(ball) == 1:
+                x_ball_found_remember.append(x_ball)
+                y_ball_found_remember.append(y_ball)
+                x_ball_fr_mid = round(np.mean(x_ball_found_remember))
+                y_ball_fr_mid = round(np.mean(y_ball_found_remember))
 
-        ## kalman filter
-        # kf.statePre = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
-        # kf.statePost = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
-        if len(x_ball) and len(y_ball) == 1:
-            # kf.statePre = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
-            # kf.statePost = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
-            kf.correct(np.array([[np.float32(x_ball[0])],[np.float32(y_ball[0])]]))
-        # else:
+            ## kalman filter
+            # kf.statePre = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
+            # kf.statePost = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
+            if len(x_ball) and len(y_ball) == 1:
+                # kf.statePre = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
+                # kf.statePost = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
+                kf.correct(np.array([[np.float32(x_ball[0])],[np.float32(y_ball[0])]]))
+            # else:
+                # kf_predict = kf.predict()
+
+            # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
             # kf_predict = kf.predict()
+            cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
+            #cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (127,0,125), 2)
 
-        # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
-        # kf_predict = kf.predict()
-        cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
-        #cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (127,0,125), 2)
+            ## calculating the failsure percentage 
+            """if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
+                # variabel i for right detection 
+                i += 1
+            elif abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
+                i += 1
+            
+            ## calculating the failsure percentage for kalman
+            if abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
+                # variabel i for right detection 
+                j += 1"""
 
-        ## calculating the failsure percentage 
-        """if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
-            # variabel i for right detection 
-            i += 1
-        elif abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
-            i += 1
+            #frame_count += 1 
+
+            if len(ball) == 1:
+
+                data = (field_found, frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+
+            else:
+                data = (field_found, frame, frame_count, None, None, round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+            
+            queue_out.put(data)
+
+
+            kf_predict = kf.predict()
+            # cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (255,0,0), 2)
+
+            ball_radius = 31
+            kalman_corrected = False 
+
+            ## barrier for the kalaman 
+            if kf_predict[0, 0] < x_left + ball_radius:
+                kf_distance_y = kf_pred_old[1, 0] - kf_predict[1, 0]
+                # print(f"old kf predict is: {kf_predict}")
+                new_kf_predict_x_left = abs(x_left + ball_radius - kf_predict[0, 0])
+                old_kf_predict_x_left = abs(x_left + ball_radius - kf_pred_old[0, 0])
+                kf_propotion = new_kf_predict_x_left / (new_kf_predict_x_left + old_kf_predict_x_left)
+                kf_new_point = kf_distance_y * kf_propotion + kf_predict[1, 0]
+                kf.correct(np.array([[np.float32(x_left + ball_radius)],[np.float32(kf_new_point)]]))  
+                kf_predict[0, 0] = x_left + ball_radius + new_kf_predict_x_left
+                kalman_corrected = True
+            elif kf_predict[0, 0] > x_right - ball_radius:
+                kf_distance_y = kf_pred_old[1, 0] - kf_predict[1, 0]
+                new_kf_predict_x_right = abs(x_right - ball_radius - kf_predict[0, 0])
+                old_kf_predict_x_right = abs(x_right - ball_radius - kf_pred_old[0, 0])
+                kf_propotion = new_kf_predict_x_right / (new_kf_predict_x_right + old_kf_predict_x_right)
+                kf_new_point = kf_distance_y * kf_propotion + kf_predict[1, 0]
+                kf.correct(np.array([[np.float32(x_right - ball_radius)],[np.float32(kf_new_point)]]))
+                kf_predict[0, 0] = x_right - ball_radius - new_kf_predict_x_right
+                kalman_corrected = True
+
+            if kf_predict[1, 0] < y_upper + ball_radius:
+                kf_distance_x = kf_pred_old[0, 0] - kf_predict[0, 0]
+                new_kf_predict_y_upper = abs(y_upper + ball_radius - kf_predict[1, 0])
+                old_kf_predict_y_upper = abs(y_upper + ball_radius - kf_pred_old[1, 0])
+                kf_propotion = new_kf_predict_y_upper / (new_kf_predict_y_upper + old_kf_predict_y_upper)
+                kf_new_point = kf_distance_x * kf_propotion + kf_predict[0, 0]
+                kf.correct(np.array([[np.float32(y_upper + ball_radius)],[np.float32(kf_new_point)]]))
+                kf_predict[1, 0] = y_upper + ball_radius + new_kf_predict_y_upper
+                kalman_corrected = True
+            elif kf_predict[1, 0] > y_lower - ball_radius:
+                kf_distance_x = kf_pred_old[0, 0] - kf_predict[0, 0]
+                new_kf_predict_y_lower = abs(y_lower - ball_radius - kf_predict[1, 0])
+                old_kf_predict_y_lower = abs(y_lower - ball_radius - kf_pred_old[1, 0])
+                kf_propotion = new_kf_predict_y_lower / (new_kf_predict_y_lower + old_kf_predict_y_lower)
+                kf_new_point = kf_distance_x * kf_propotion + kf_predict[1, 0]
+                kf.correct(np.array([[np.float32(y_lower - ball_radius)],[np.float32(kf_new_point)]]))
+                kf_predict[1, 0] = y_lower - ball_radius - new_kf_predict_y_lower
+                kalman_corrected = True
+            
+            if kalman_corrected:
+                kf.correct(np.array([[np.float32(kf_predict[0, 0])],[np.float32(kf_predict[1, 0])]])) 
+
+            if np.sqrt((kf_predict[0, 0] - kf_pred_old[0, 0]) ** 2 + (kf_predict[1, 0]- kf_pred_old[1, 0]) ** 2) > 150 and kf_update < 10:
+                kf_update += 1
+                kf_predict = kf_pred_old
+            else:
+                kf_update = 0 
+
+            kf_pred_old = kf_predict  
+
+            #out.write(frame)     
+
+            x_mid_old = x_ball
+            y_mid_old = y_ball 
         
-        ## calculating the failsure percentage for kalman
-        if abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
-            # variabel i for right detection 
-            j += 1"""
-
-        #frame_count += 1 
-
-        if len(ball) == 1:
-
-            data = (frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
-
         else:
-            data = (frame, frame_count, None, None, round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
-        
-        queue_out.put(data)
+            field_found = frame_informations[0]
+            thresh = frame_informations[1]
 
+            data = (field_found, thresh)
 
-        kf_predict = kf.predict()
-        # cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (255,0,0), 2)
-
-        ball_radius = 31
-        kalman_corrected = False 
-
-        ## barrier for the kalaman 
-        if kf_predict[0, 0] < x_left + ball_radius:
-            kf_distance_y = kf_pred_old[1, 0] - kf_predict[1, 0]
-            # print(f"old kf predict is: {kf_predict}")
-            new_kf_predict_x_left = abs(x_left + ball_radius - kf_predict[0, 0])
-            old_kf_predict_x_left = abs(x_left + ball_radius - kf_pred_old[0, 0])
-            kf_propotion = new_kf_predict_x_left / (new_kf_predict_x_left + old_kf_predict_x_left)
-            kf_new_point = kf_distance_y * kf_propotion + kf_predict[1, 0]
-            kf.correct(np.array([[np.float32(x_left + ball_radius)],[np.float32(kf_new_point)]]))  
-            kf_predict[0, 0] = x_left + ball_radius + new_kf_predict_x_left
-            kalman_corrected = True
-        elif kf_predict[0, 0] > x_right - ball_radius:
-            kf_distance_y = kf_pred_old[1, 0] - kf_predict[1, 0]
-            new_kf_predict_x_right = abs(x_right - ball_radius - kf_predict[0, 0])
-            old_kf_predict_x_right = abs(x_right - ball_radius - kf_pred_old[0, 0])
-            kf_propotion = new_kf_predict_x_right / (new_kf_predict_x_right + old_kf_predict_x_right)
-            kf_new_point = kf_distance_y * kf_propotion + kf_predict[1, 0]
-            kf.correct(np.array([[np.float32(x_right - ball_radius)],[np.float32(kf_new_point)]]))
-            kf_predict[0, 0] = x_right - ball_radius - new_kf_predict_x_right
-            kalman_corrected = True
-
-        if kf_predict[1, 0] < y_upper + ball_radius:
-            kf_distance_x = kf_pred_old[0, 0] - kf_predict[0, 0]
-            new_kf_predict_y_upper = abs(y_upper + ball_radius - kf_predict[1, 0])
-            old_kf_predict_y_upper = abs(y_upper + ball_radius - kf_pred_old[1, 0])
-            kf_propotion = new_kf_predict_y_upper / (new_kf_predict_y_upper + old_kf_predict_y_upper)
-            kf_new_point = kf_distance_x * kf_propotion + kf_predict[0, 0]
-            kf.correct(np.array([[np.float32(y_upper + ball_radius)],[np.float32(kf_new_point)]]))
-            kf_predict[1, 0] = y_upper + ball_radius + new_kf_predict_y_upper
-            kalman_corrected = True
-        elif kf_predict[1, 0] > y_lower - ball_radius:
-            kf_distance_x = kf_pred_old[0, 0] - kf_predict[0, 0]
-            new_kf_predict_y_lower = abs(y_lower - ball_radius - kf_predict[1, 0])
-            old_kf_predict_y_lower = abs(y_lower - ball_radius - kf_pred_old[1, 0])
-            kf_propotion = new_kf_predict_y_lower / (new_kf_predict_y_lower + old_kf_predict_y_lower)
-            kf_new_point = kf_distance_x * kf_propotion + kf_predict[1, 0]
-            kf.correct(np.array([[np.float32(y_lower - ball_radius)],[np.float32(kf_new_point)]]))
-            kf_predict[1, 0] = y_lower - ball_radius - new_kf_predict_y_lower
-            kalman_corrected = True
-        
-        if kalman_corrected:
-            kf.correct(np.array([[np.float32(kf_predict[0, 0])],[np.float32(kf_predict[1, 0])]])) 
-
-        if np.sqrt((kf_predict[0, 0] - kf_pred_old[0, 0]) ** 2 + (kf_predict[1, 0]- kf_pred_old[1, 0]) ** 2) > 150 and kf_update < 10:
-            kf_update += 1
-            kf_predict = kf_pred_old
-        else:
-            kf_update = 0 
-
-        kf_pred_old = kf_predict  
-
-        #out.write(frame)     
-
-        x_mid_old = x_ball
-        y_mid_old = y_ball 
+            queue_out.put(data)
 
     
     # put a STOP string into the queue
@@ -918,9 +935,9 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
     cv.setWindowProperty("resized",cv.WND_PROP_FULLSCREEN,cv.WINDOW_FULLSCREEN)
 
     while True:
-        start_time = datetime.datetime.now()
+        frame_start_time = datetime.datetime.now()
         # get the video file informations from the queue 
-        # (frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+        # (field_found, frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
         while True:
             frame_informations = queue_in.get()
             if video_informations is not None:
@@ -930,205 +947,216 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
             print("STOP")
             break
 
-        frame = frame_informations[0]
-        frame_count = frame_informations[1]
-        x_ball = frame_informations[2]
-        y_ball = frame_informations[3]
-        kf_predict_x = frame_informations[4]
-        kf_predict_y = frame_informations[5]
-        x = frame_informations[6]
-        y = frame_informations[7]
-        recorded_time = frame_informations[8]
+        elif frame_informations[0]:
 
-        if x_ball is not None and y_ball is not None:
-            x_position = x_ball
-            y_position = y_ball
-        else:
-            x_position = kf_predict_x
-            y_position = kf_predict_y
+            field_found = frame_informations[0]
+            frame = frame_informations[1]
+            frame_count = frame_informations[2]
+            x_ball = frame_informations[3]
+            y_ball = frame_informations[4]
+            kf_predict_x = frame_informations[5]
+            kf_predict_y = frame_informations[6]
+            x = frame_informations[7]
+            y = frame_informations[8]
+            recorded_time = frame_informations[9]
 
-        
-        x_position_centered = x_position - x[14]
-        y_position_centered = y_position - y[14]
-
-        x_mid_16_17 = round((x[15] + x[16]) /2)
-        x_mid_20_21 = round((x[19] + x[20]) /2)
-
-        x_mid_18_19 = round((x[17] + x[18]) /2)
-        x_mid_22_23 = round((x[21] + x[22]) /2)
-
-        y_mid_16_20 = round((y[15] + y[19]) /2)
-        y_mid_17_21 = round((y[16] + y[20]) /2)
-
-        y_mid_18_22 = round((y[17] + y[21]) /2)
-        y_mid_19_23 = round((y[16] + y[22]) /2)
-
-
-        y_diff_18_19 = y[18] - y[17]
-        y_diff_22_23 = y[22] - y[21]
-
-        y_diff_16_17 = y[16] - y[15]
-        y_diff_20_21 = y[20] - y[19]
-
-        y_diff_5_13 = y[12] - y[4]
-
-        x_diff_16_20 = x[19] - x[15]
-        x_diff_18_22 = x[21] - x[17]
-
-        x_diff_mid = x_mid_22_23 - x_mid_18_19
-
-        x_diff_19_23 = x[22] - x[18]
-        x_diff_17_21 = x[20] - x[16]
-
-        
-
-        x_diff_16_17_20_21 = x_mid_20_21 - x_mid_16_17
-
-
-        m1 = ((y_diff_16_17 - y_diff_20_21) / 2) / x_diff_16_17_20_21
-
-        # conversion factor
-        y_conv_factor_18_19 = 262 / y_diff_18_19
-        y_conv_factor_16_17 = 395 / y_diff_16_17
-
-        y_conv_factor_5_13 = 671 / y_diff_5_13
-
-        y_conv_factor_20_21 = 395 / y_diff_20_21
-        y_conv_factor_22_23 = 262 / y_diff_22_23
-
-        x_conv_factor_16_20 = 640 / x_diff_16_20
-        x_conv_factor_18_22 = 918 / x_diff_18_22
-
-        x_conv_factor_center = 918 / x_diff_mid
-
-        x_conv_factor_19_23 = 918 / x_diff_19_23
-        x_conv_factor_17_21 = 640 / x_diff_17_21
-
-
-
-        # find the conversion vector for the y coordinate
-        if x_position <= x_mid_16_17:
-            x_sector_position = abs(x_position_centered) - (x[14] - x_mid_16_17)
-            x_sector_width = x_mid_16_17 - x_mid_18_19
-            y_conv_factor = y_conv_factor_16_17 + (y_conv_factor_18_19 - y_conv_factor_16_17) * (x_sector_position / x_sector_width)
-
-        elif x_position >= x_mid_16_17 and x_position <= x[14]:
-            x_sector_position = abs(x_position_centered)
-            x_sector_width = x[14] - x_mid_16_17
-            y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_16_17 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
-
-        elif x_position >= x[14] and x_position <= x_mid_20_21:
-            x_sector_position = abs(x_position_centered)
-            x_sector_width = x_mid_20_21 - x[14]
-            y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_20_21 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
-        
-        elif x_position >= x_mid_20_21:
-            x_sector_position = abs(x_position_centered) - (x_mid_20_21 - x[14])
-            x_sector_width = x_mid_22_23 - x_mid_20_21
-            y_conv_factor = y_conv_factor_20_21 + (y_conv_factor_22_23 - y_conv_factor_20_21) * (x_sector_position / x_sector_width)
-
-        # find the conversion vector for the x coordinate
-        if y_position <= y_mid_18_22:
-            y_sector_position = abs(y_position_centered) - (y[14] - y_mid_18_22)
-            y_sector_width = y_mid_18_22 - y_mid_16_20
-            x_conv_factor = x_conv_factor_18_22 + (x_conv_factor_16_20 - x_conv_factor_18_22) * (y_sector_position / y_sector_width)
-        
-        elif y_position >= y_mid_18_22 and y_position <= y[14]:
-            y_sector_position = abs(y_position_centered)
-            y_sector_width = y[14] - y_mid_18_22
-            x_conv_factor = x_conv_factor_center + (x_conv_factor_18_22 - x_conv_factor_center) * (y_sector_position / y_sector_width)
-
-        elif y_position >= y[14] and y_position <= y_mid_19_23:
-            y_sector_position = abs(y_position_centered)
-            y_sector_width = y_mid_19_23 - y[14]
-            x_conv_factor = x_conv_factor_center + (x_conv_factor_19_23 - x_conv_factor_center) * (y_sector_position / y_sector_width)
-
-        elif y_position >= y_mid_19_23:
-            y_sector_position = abs(y_position_centered) - (y_mid_19_23 - y[14])
-            y_sector_width = y_mid_17_21 - y_mid_19_23
-            x_conv_factor = x_conv_factor_19_23 + (x_conv_factor_17_21 - x_conv_factor_19_23) * (y_sector_position / y_sector_width)
-
-        
-        x_ball_real = x_position_centered * x_conv_factor
-        y_ball_real = y_position_centered * y_conv_factor
-
-        #print(f"x: {x_ball_real}")
-        #print(f"y: {y_ball_real}")
-
-        if x_ball_old is not None and y_ball_old is not None:
-            x_ball_diff = x_ball_real - x_ball_old
-            y_ball_diff = y_ball_real - y_ball_old
-
-            """Video"""
-            # velocity in m/s
-            x_velocity = x_ball_diff / frame_time / 1000
-            y_velocity = y_ball_diff / frame_time / 1000
-            ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
-
-
-            """Live"""
-            """
-            time_delta = recorded_time - recorded_time_old
-            x_velocity = x_ball_diff * time_delta.total_seconds() / 1000
-            y_velocity = y_ball_diff * time_delta.total_seconds() / 1000
-            ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
-            """
-        else:
-            x_velocity = None
-            y_velocity = None
-            ball_velocity = 0.
-            
-        x_ball_old = x_ball_real
-        y_ball_old = y_ball_real
-        recorded_time_old = recorded_time
-
-        data.append((frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_velocity, y_velocity, x[14], y[14], recorded_time))
-
-        if len(data) >= 500:
-            queue_out.put(data)
-            data = []
-
-        """if len(vel_list) >= 60:
-            show_vel = max(vel_list)
-            vel_list = []""" 
-        if x_velocity is not None and y_velocity is not None:
-            if len(vel_list) < 5:
-                vel_list.append(ball_velocity)
-                show_vel = np.mean(vel_list)
-                x_vel_list.append(x_velocity)
-                x_show_vel = np.mean(x_vel_list)
-                y_vel_list.append(y_velocity)
-                y_show_vel = np.mean(y_vel_list)
+            if x_ball is not None and y_ball is not None:
+                x_position = x_ball
+                y_position = y_ball
             else:
-                vel_list.pop(0)
-                vel_list.append(ball_velocity)
-                show_vel = np.mean(vel_list)
-                x_vel_list.pop(0)
-                x_vel_list.append(x_velocity)
-                x_show_vel = np.mean(x_vel_list)
-                y_vel_list.pop(0)
-                y_vel_list.append(y_velocity)
-                y_show_vel = np.mean(y_vel_list)
+                x_position = kf_predict_x
+                y_position = kf_predict_y
 
+            
+            x_position_centered = x_position - x[14]
+            y_position_centered = y_position - y[14]
+
+            x_mid_16_17 = round((x[15] + x[16]) /2)
+            x_mid_20_21 = round((x[19] + x[20]) /2)
+
+            x_mid_18_19 = round((x[17] + x[18]) /2)
+            x_mid_22_23 = round((x[21] + x[22]) /2)
+
+            y_mid_16_20 = round((y[15] + y[19]) /2)
+            y_mid_17_21 = round((y[16] + y[20]) /2)
+
+            y_mid_18_22 = round((y[17] + y[21]) /2)
+            y_mid_19_23 = round((y[16] + y[22]) /2)
+
+
+            y_diff_18_19 = y[18] - y[17]
+            y_diff_22_23 = y[22] - y[21]
+
+            y_diff_16_17 = y[16] - y[15]
+            y_diff_20_21 = y[20] - y[19]
+
+            y_diff_5_13 = y[12] - y[4]
+
+            x_diff_16_20 = x[19] - x[15]
+            x_diff_18_22 = x[21] - x[17]
+
+            x_diff_mid = x_mid_22_23 - x_mid_18_19
+
+            x_diff_19_23 = x[22] - x[18]
+            x_diff_17_21 = x[20] - x[16]
+
+            
+
+            x_diff_16_17_20_21 = x_mid_20_21 - x_mid_16_17
+
+
+            m1 = ((y_diff_16_17 - y_diff_20_21) / 2) / x_diff_16_17_20_21
+
+            # conversion factor
+            y_conv_factor_18_19 = 262 / y_diff_18_19
+            y_conv_factor_16_17 = 395 / y_diff_16_17
+
+            y_conv_factor_5_13 = 671 / y_diff_5_13
+
+            y_conv_factor_20_21 = 395 / y_diff_20_21
+            y_conv_factor_22_23 = 262 / y_diff_22_23
+
+            x_conv_factor_16_20 = 640 / x_diff_16_20
+            x_conv_factor_18_22 = 918 / x_diff_18_22
+
+            x_conv_factor_center = 918 / x_diff_mid
+
+            x_conv_factor_19_23 = 918 / x_diff_19_23
+            x_conv_factor_17_21 = 640 / x_diff_17_21
+
+
+
+            # find the conversion vector for the y coordinate
+            if x_position <= x_mid_16_17:
+                x_sector_position = abs(x_position_centered) - (x[14] - x_mid_16_17)
+                x_sector_width = x_mid_16_17 - x_mid_18_19
+                y_conv_factor = y_conv_factor_16_17 + (y_conv_factor_18_19 - y_conv_factor_16_17) * (x_sector_position / x_sector_width)
+
+            elif x_position >= x_mid_16_17 and x_position <= x[14]:
+                x_sector_position = abs(x_position_centered)
+                x_sector_width = x[14] - x_mid_16_17
+                y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_16_17 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
+
+            elif x_position >= x[14] and x_position <= x_mid_20_21:
+                x_sector_position = abs(x_position_centered)
+                x_sector_width = x_mid_20_21 - x[14]
+                y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_20_21 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
+            
+            elif x_position >= x_mid_20_21:
+                x_sector_position = abs(x_position_centered) - (x_mid_20_21 - x[14])
+                x_sector_width = x_mid_22_23 - x_mid_20_21
+                y_conv_factor = y_conv_factor_20_21 + (y_conv_factor_22_23 - y_conv_factor_20_21) * (x_sector_position / x_sector_width)
+
+            # find the conversion vector for the x coordinate
+            if y_position <= y_mid_18_22:
+                y_sector_position = abs(y_position_centered) - (y[14] - y_mid_18_22)
+                y_sector_width = y_mid_18_22 - y_mid_16_20
+                x_conv_factor = x_conv_factor_18_22 + (x_conv_factor_16_20 - x_conv_factor_18_22) * (y_sector_position / y_sector_width)
+            
+            elif y_position >= y_mid_18_22 and y_position <= y[14]:
+                y_sector_position = abs(y_position_centered)
+                y_sector_width = y[14] - y_mid_18_22
+                x_conv_factor = x_conv_factor_center + (x_conv_factor_18_22 - x_conv_factor_center) * (y_sector_position / y_sector_width)
+
+            elif y_position >= y[14] and y_position <= y_mid_19_23:
+                y_sector_position = abs(y_position_centered)
+                y_sector_width = y_mid_19_23 - y[14]
+                x_conv_factor = x_conv_factor_center + (x_conv_factor_19_23 - x_conv_factor_center) * (y_sector_position / y_sector_width)
+
+            elif y_position >= y_mid_19_23:
+                y_sector_position = abs(y_position_centered) - (y_mid_19_23 - y[14])
+                y_sector_width = y_mid_17_21 - y_mid_19_23
+                x_conv_factor = x_conv_factor_19_23 + (x_conv_factor_17_21 - x_conv_factor_19_23) * (y_sector_position / y_sector_width)
+
+            
+            x_ball_real = x_position_centered * x_conv_factor
+            y_ball_real = y_position_centered * y_conv_factor
+
+            #print(f"x: {x_ball_real}")
+            #print(f"y: {y_ball_real}")
+
+            if x_ball_old is not None and y_ball_old is not None:
+                x_ball_diff = x_ball_real - x_ball_old
+                y_ball_diff = y_ball_real - y_ball_old
+
+                """Video"""
+                # velocity in m/s
+                x_velocity = x_ball_diff / frame_time / 1000
+                y_velocity = y_ball_diff / frame_time / 1000
+                ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
+
+
+                """Live"""
+                """
+                time_delta = recorded_time - recorded_time_old
+                x_velocity = x_ball_diff * time_delta.total_seconds() / 1000
+                y_velocity = y_ball_diff * time_delta.total_seconds() / 1000
+                ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
+                """
+            else:
+                x_velocity = None
+                y_velocity = None
+                ball_velocity = 0.
+                
+            x_ball_old = x_ball_real
+            y_ball_old = y_ball_real
+            recorded_time_old = recorded_time
+
+            data.append((frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_velocity, y_velocity, x[14], y[14], recorded_time))
+
+            if len(data) >= 500:
+                queue_out.put(data)
+                data = []
+
+            """if len(vel_list) >= 60:
+                show_vel = max(vel_list)
+                vel_list = []""" 
+            if x_velocity is not None and y_velocity is not None:
+                if len(vel_list) < 5:
+                    vel_list.append(ball_velocity)
+                    show_vel = np.mean(vel_list)
+                    x_vel_list.append(x_velocity)
+                    x_show_vel = np.mean(x_vel_list)
+                    y_vel_list.append(y_velocity)
+                    y_show_vel = np.mean(y_vel_list)
+                else:
+                    vel_list.pop(0)
+                    vel_list.append(ball_velocity)
+                    show_vel = np.mean(vel_list)
+                    x_vel_list.pop(0)
+                    x_vel_list.append(x_velocity)
+                    x_show_vel = np.mean(x_vel_list)
+                    y_vel_list.pop(0)
+                    y_vel_list.append(y_velocity)
+                    y_show_vel = np.mean(y_vel_list)
+
+            
+                start_point = (x_position, y_position)
+                end_point = (round(x_position+x_show_vel*50), round(y_position+y_show_vel*50))
+                cv.line(frame, start_point, end_point, (255,0,0), 2)
+
+            cv.rectangle(frame, (10, 2), (350,45), (255,255,255), -1)
+            cv.putText(frame, f"velocity: {round(show_vel, 2)} m/s", (15, 35),
+                cv.FONT_HERSHEY_SIMPLEX, 1 , (0,0,0))
+
+            ## Display the resulting frame
+            cv.imshow("resized", frame)
         
-            start_point = (x_position, y_position)
-            end_point = (round(x_position+x_show_vel*50), round(y_position+y_show_vel*50))
-            cv.line(frame, start_point, end_point, (255,0,0), 2)
+        else:
+            field_found = frame_informations[0]
+            thresh = frame_informations[1]
 
-        cv.rectangle(frame, (10, 2), (350,45), (255,255,255), -1)
-        cv.putText(frame, f"velocity: {round(show_vel, 2)} m/s", (15, 35),
-               cv.FONT_HERSHEY_SIMPLEX, 1 , (0,0,0))
+            ## Display the resulting frame
+            cv.imshow("resized", thresh)
 
-        ## Display the resulting frame
-        cv.imshow("resized", frame)
-        time_delta = datetime.datetime.now() - start_time
+        time_delta = datetime.datetime.now() - frame_start_time
 
         wait_time = round((frame_time - time_delta.total_seconds())*1000)
         if wait_time < 1:
             wait_time = 1
 
         ## stop the loop if the "q" key on the keyboard is pressed 
-        if cv.waitKey(wait_time) == ord("q"):
+        if cv.waitKey(1) == ord("q"):
             queue_stop1.put("STOP")
             queue_stop2.put("STOP")
             break
@@ -1147,11 +1175,11 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
 
 if __name__ == "__main__":
     # create the queue to send data from one process to the other
-    queue_db = multiprocessing.Queue()
-    queue_field = multiprocessing.Queue()
-    queue_data = multiprocessing.Queue()
-    queue_stop1 = multiprocessing.Queue()
-    queue_stop2 = multiprocessing.Queue()
+    queue_db = multiprocessing.Queue(maxsize=100)
+    queue_field = multiprocessing.Queue(maxsize=100)
+    queue_data = multiprocessing.Queue(maxsize=100)
+    queue_stop1 = multiprocessing.Queue(maxsize=100)
+    queue_stop2 = multiprocessing.Queue(maxsize=100)
 
     # create the procces to save the data into the database and start it
     db_process = multiprocessing.Process(target=save_data_process, args=(queue_db,))
