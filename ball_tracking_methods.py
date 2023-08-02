@@ -207,7 +207,7 @@ def matlabDetection(frame, frame_imbinarized, background_inverted, x_ball_fr_mid
         # x_vel = x_mid - x_mid_old
         # y_vel = y_mid - y_mid_old
 
-    vid_draw_0 = cv.drawContours(frame, con_filtered, -1, (255, 0, 0 ), 3)
+    #vid_draw_0 = cv.drawContours(frame, con_filtered, -1, (255, 0, 0 ), 3)
     ## draw 
     vid_draw = cv.drawContours(frame, ball, -1, (0, 0, 255), 3)
 

@@ -114,7 +114,7 @@ def save_data_process(queue_in):
     print("")
 
     # get the video file informations from the queue
-    while True:
+    """while True:
         video_informations = queue_in.get()
         if video_informations is not None:
             break
@@ -144,7 +144,7 @@ def save_data_process(queue_in):
     # get the video id from the database
     mycurser.execute("SELECT video_id FROM videos WHERE video_name = %s", (video_informations[0],))
     video_id = mycurser.fetchall()[0][0]
-    print(f"video id: {video_id}")
+    print(f"video id: {video_id}")"""
 
     # get the start_time from the queue
     while True:
@@ -152,8 +152,8 @@ def save_data_process(queue_in):
         if start_time is not None:
             break
 
-    sql = "INSERT INTO sessions (start, video_id) VALUES (%s, %s)"
-    val = (start_time, video_id)
+    sql = "INSERT INTO sessions (start) VALUES (%s)"
+    val = (start_time,)
     mycurser.execute(sql, val)
 
     mydb.commit()
@@ -244,95 +244,97 @@ def save_data_process(queue_in):
     mycurser.execute("SELECT real_ball_x, real_ball_y FROM positions WHERE session_id = %s", (session_id,))
     ball_positions = mycurser.fetchall()
 
-    heatmap_data = np.zeros((10, 16))
+    if len(ball_positions) != 0:
 
-    for position in ball_positions:
-        if position[0] <= -490:
-            ix = 0
-        elif position[0] <= -420:
-            ix = 1
-        elif position[0] <= -350:
-            ix = 2
-        elif position[0] <= -280:
-            ix = 3
-        elif position[0] <= -210:
-            ix = 4
-        elif position[0] <= -140:
-            ix = 5
-        elif position[0] <= -70:
-            ix = 6
-        elif position[0] <= 0:
-            ix = 7
-        elif position[0] <= 70:
-            ix = 8
-        elif position[0] <= 140:
-            ix = 9
-        elif position[0] <= 210:
-            ix = 10
-        elif position[0] <= 280:
-            ix = 11
-        elif position[0] <= 350:
-            ix = 12
-        elif position[0] <= 420:
-            ix = 13
-        elif position[0] <= 490:
-            ix = 14
-        else:
-            ix = 15
+        heatmap_data = np.zeros((10, 16))
+
+        for position in ball_positions:
+            if position[0] <= -490:
+                ix = 0
+            elif position[0] <= -420:
+                ix = 1
+            elif position[0] <= -350:
+                ix = 2
+            elif position[0] <= -280:
+                ix = 3
+            elif position[0] <= -210:
+                ix = 4
+            elif position[0] <= -140:
+                ix = 5
+            elif position[0] <= -70:
+                ix = 6
+            elif position[0] <= 0:
+                ix = 7
+            elif position[0] <= 70:
+                ix = 8
+            elif position[0] <= 140:
+                ix = 9
+            elif position[0] <= 210:
+                ix = 10
+            elif position[0] <= 280:
+                ix = 11
+            elif position[0] <= 350:
+                ix = 12
+            elif position[0] <= 420:
+                ix = 13
+            elif position[0] <= 490:
+                ix = 14
+            else:
+                ix = 15
+            
+            if position[1] <= -272:
+                iy = 0
+            elif position[1] <= -204:
+                iy = 1
+            elif position[1] <= -136:
+                iy = 2
+            elif position[1] <= -68:
+                iy = 3
+            elif position[1] <= -0:
+                iy = 4
+            elif position[1] <= 68:
+                iy = 5
+            elif position[1] <= 136:
+                iy = 6
+            elif position[1] <= 204:
+                iy = 7
+            elif position[1] <= 272:
+                iy = 8
+            else:
+                iy = 9
+            
+            heatmap_data[iy, ix] += 1
+
+        #factor = heatmap_data.max()
+
+        heatmap_data = heatmap_data * 100 / len(ball_positions)
+
+
+        wd = matplotlib.cm.winter._segmentdata
+        wd["alpha"] = ((0.0, 0.0, 0.3),
+                        (0.3, 0.3, 1.0),
+                        (1.0, 1.0, 1.0))
+
+        al_winter = matplotlib.colors.LinearSegmentedColormap("AlphaWinter", wd)
+
+        field_img = mpimg.imread("Spielfeld.png")
+
+        sns.set()
+
+        hmax = sns.heatmap(heatmap_data,
+            #cmap = al_winter, # this worked but I didn't like it
+            cmap = matplotlib.cm.cool,
+            alpha = 0.4, # whole heatmap is translucent
+            annot = True,
+            zorder = 2,
+            )
         
-        if position[1] <= -272:
-            iy = 0
-        elif position[1] <= -204:
-            iy = 1
-        elif position[1] <= -136:
-            iy = 2
-        elif position[1] <= -68:
-            iy = 3
-        elif position[1] <= -0:
-            iy = 4
-        elif position[1] <= 68:
-            iy = 5
-        elif position[1] <= 136:
-            iy = 6
-        elif position[1] <= 204:
-            iy = 7
-        elif position[1] <= 272:
-            iy = 8
-        else:
-            iy = 9
-        
-        heatmap_data[iy, ix] += 1
+        hmax.imshow(field_img,
+                    aspect = hmax.get_aspect(),
+                    extent = hmax.get_xlim() + hmax.get_ylim(),
+                    zorder = 1) #put the map under the heatmap
 
-    #factor = heatmap_data.max()
-
-    heatmap_data = heatmap_data * 100 / len(ball_positions)
-
-
-    wd = matplotlib.cm.winter._segmentdata
-    wd["alpha"] = ((0.0, 0.0, 0.3),
-                    (0.3, 0.3, 1.0),
-                    (1.0, 1.0, 1.0))
-
-    al_winter = matplotlib.colors.LinearSegmentedColormap("AlphaWinter", wd)
-
-    field_img = mpimg.imread("Spielfeld.png")
-
-    sns.set()
-
-    hmax = sns.heatmap(heatmap_data,
-        #cmap = al_winter, # this worked but I didn't like it
-        cmap = matplotlib.cm.cool,
-        alpha = 0.4, # whole heatmap is translucent
-        annot = True,
-        zorder = 2,
-        )
-    
-    hmax.imshow(field_img,
-                aspect = hmax.get_aspect(),
-                extent = hmax.get_xlim() + hmax.get_ylim(),
-                zorder = 1) #put the map under the heatmap
-
-    matplotlib.pyplot.show()
+        matplotlib.pyplot.show()
 
     # close the MySQL curser object
     mycurser.close()
@@ -341,12 +343,15 @@ def save_data_process(queue_in):
 
 def field_detection_process(queue_out, queue_stop):
 
-    video_file = "ball_tracking_test.mp4"
+    #video_file = "ball_tracking_test.mp4"
 
     # video capturing from video file or camera
     # to read a video file insert the file name
     # for a camera insert an integer depending on the camera port
-    cap = cv.VideoCapture("Test-Videos/" + video_file)
+    cap = cv.VideoCapture(0, cv.CAP_DSHOW)
+
+    cap.set(cv.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv.CAP_PROP_FRAME_HEIGHT, 1080)
 
     # exit the programm if the camera cannot be oppend, or the video file cannot be read
     if not cap.isOpened():
@@ -355,7 +360,7 @@ def field_detection_process(queue_out, queue_stop):
         queue_out.put("STOP")
         return
 
-    # get the video fps
+    """# get the video fps
     fps = cap.get(cv.CAP_PROP_FPS)
     # get the total frame count of the video
     total_frames = cap.get(cv.CAP_PROP_FRAME_COUNT)
@@ -368,7 +373,7 @@ def field_detection_process(queue_out, queue_stop):
     # print the fps
     print(f"fps: {fps}")
     # calculate the frame time 
-    frame_time = int(1000/fps)
+    frame_time = int(1000/fps)"""
     # get the width and height of the video
     video_width = int(cap.get(3))
     video_height = int(cap.get(4))
@@ -651,7 +656,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
     #csv = pd.read_csv("X_und_Y_Positionen_des_Balles_Video_ball_tracking_test.csv")
 
     # get the video file informations from the queue (video_file, fps, total_frames, video_duration)
-    while True:
+    """while True:
         video_informations = queue_in.get()
         if video_informations is not None:
             break
@@ -669,7 +674,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
     print(fps)
 
     ## Video soll in der richtigen Geschwindigkeit abgespielt werden / Wie viele millisekunden braucht ein einzelner Frame (querwert = Zeit in millisekunden)
-    frame_time = int(1000/fps)
+    frame_time = int(1000/fps)"""
 
     """## start of manual background subtraction for a better motion detection 
     ## memorizing the first frame of the video
@@ -763,7 +768,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
         while True:
             frame_informations = queue_in.get()
             
-            if video_informations is not None:
+            if frame_informations is not None:
                 break
 
         if frame_informations == "STOP":
@@ -823,7 +828,7 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
                 y_lower = y_lower
                 )
             
-            cv.circle(frame, (int(x_ball_fr_mid), int(y_ball_fr_mid)), 20, (20,125,35), 2)
+            #cv.circle(frame, (int(x_ball_fr_mid), int(y_ball_fr_mid)), 20, (20,125,35), 2)
             
             ## searching for the ball and rembering its last position
             if len(x_ball_found_remember) and len(y_ball_found_remember) < 10 and len(ball) == 1:
@@ -853,10 +858,11 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
                 kf.correct(np.array([[np.float32(x_ball[0])],[np.float32(y_ball[0])]]))
             # else:
                 # kf_predict = kf.predict()
-
+            
+                
             # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
             # kf_predict = kf.predict()
-            cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
+                
             #cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (127,0,125), 2)
 
             ## calculating the failsure percentage 
@@ -873,12 +879,14 @@ def ball_tracking_process(queue_in, queue_out, queue_stop):
 
             #frame_count += 1 
 
-            if len(ball) == 1:
+            if len(x_ball) == 1:
 
                 data = (field_found, frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
 
             else:
+                cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,0,255), 2)
                 data = (field_found, frame, frame_count, None, None, round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
+                
             
             queue_out.put(data)
 
@@ -998,7 +1006,7 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
     """
 
     # get the video file informations from the queue (video_file, fps, total_frames, video_duration)
-    while True:
+    """while True:
         video_informations = queue_in.get()
         if video_informations is not None:
             break
@@ -1010,12 +1018,12 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
     frame_time = 1 / fps
         
     # put the video informations in the queue
-    queue_out.put(video_informations)
+    queue_out.put(video_informations)"""
 
     # get the start time from the queue
     while True:
         start_time = queue_in.get()
-        if video_informations is not None:
+        if start_time is not None:
             break
 
     # put the start time into the queue
@@ -1042,7 +1050,7 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
         # (field_found, frame, frame_count, x_ball[0], y_ball[0], round(kf_predict[0, 0]), round(kf_predict[1, 0]), x, y, datetime.datetime.now())
         while True:
             frame_informations = queue_in.get()
-            if video_informations is not None:
+            if frame_informations is not None:
                 break
         
         if frame_informations == "STOP":
@@ -1183,18 +1191,17 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
 
                 """Video"""
                 # velocity in m/s
-                x_velocity = x_ball_diff / frame_time / 1000
+                """x_velocity = x_ball_diff / frame_time / 1000
                 y_velocity = y_ball_diff / frame_time / 1000
-                ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
+                ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)"""
 
 
                 """Live"""
-                """
                 time_delta = recorded_time - recorded_time_old
                 x_velocity = x_ball_diff * time_delta.total_seconds() / 1000
                 y_velocity = y_ball_diff * time_delta.total_seconds() / 1000
                 ball_velocity = math.sqrt(x_velocity**2 + y_velocity**2)
-                """
+                
             else:
                 x_velocity = None
                 y_velocity = None
@@ -1253,9 +1260,9 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
 
         time_delta = datetime.datetime.now() - frame_start_time
 
-        wait_time = round((frame_time - time_delta.total_seconds())*1000)
+        """wait_time = round((frame_time - time_delta.total_seconds())*1000)
         if wait_time < 1:
-            wait_time = 1
+            wait_time = 1"""
 
         ## stop the loop if the "q" key on the keyboard is pressed 
         if cv.waitKey(1) == ord("q"):
@@ -1270,7 +1277,7 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
     
     while True:
         end_time = queue_in.get()
-        if video_informations is not None and isinstance(end_time, datetime.datetime):
+        if end_time is not None and isinstance(end_time, datetime.datetime):
             break
     
     queue_out.put(end_time)
