@@ -348,7 +348,7 @@ def field_detection_process(queue_out, queue_stop):
     # video capturing from video file or camera
     # to read a video file insert the file name
     # for a camera insert an integer depending on the camera port
-    cap = cv.VideoCapture(0, cv.CAP_DSHOW)
+    cap = cv.VideoCapture(2, cv.CAP_DSHOW)
 
     cap.set(cv.CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 1080)
