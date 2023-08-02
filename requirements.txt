@@ -4,3 +4,6 @@ opencv-contrib-python == 4.7.0.72
 numba == 0.57.1 
 mysql-connector-python == 8.0.33
 python-dotenv == 1.0.0
+matplotlib == 3.7.2
+seaborn == 0.12.2
+colormap == 1.0.4

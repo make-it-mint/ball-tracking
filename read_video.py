@@ -13,6 +13,10 @@ import ball_tracking_methods
 import time
 import math
 import queue
+#import LinearSegmentedColormap
+import matplotlib
+import matplotlib.image as mpimg
+import seaborn as sns
 
 import field_detection
 import image_processing
@@ -88,6 +92,8 @@ def save_data_process(queue_in):
         ball_y INT, \
         kalman_x INT, \
         kalman_y INT, \
+        real_ball_x DOUBLE, \
+        real_ball_y DOUBLE, \
         velocity_x DOUBLE, \
         velocity_y DOUBLE, \
         field_center_x INT, \
@@ -173,7 +179,7 @@ def save_data_process(queue_in):
         val = []
         for frame_data in data:
             val.append((session_id, frame_data[0], frame_data[1], frame_data[2], frame_data[3], 
-                        frame_data[4], frame_data[5], frame_data[6], frame_data[7], frame_data[8], frame_data[9]))
+                        frame_data[4], frame_data[5], frame_data[6], frame_data[7], frame_data[8], frame_data[9], frame_data[10], frame_data[11]))
 
         # save the data in the database
         sql = "INSERT INTO positions ( \
@@ -183,12 +189,14 @@ def save_data_process(queue_in):
             ball_y, \
             kalman_x, \
             kalman_y, \
+            real_ball_x, \
+            real_ball_y, \
             velocity_x, \
             velocity_y, \
             field_center_x, \
             field_center_y, \
             time) \
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         mycurser.executemany(sql, val)
 
         mydb.commit()
@@ -232,6 +240,100 @@ def save_data_process(queue_in):
         print(x)
     print("")
     """
+
+    mycurser.execute("SELECT real_ball_x, real_ball_y FROM positions WHERE session_id = %s", (session_id,))
+    ball_positions = mycurser.fetchall()
+
+    heatmap_data = np.zeros((10, 16))
+
+    for position in ball_positions:
+        if position[0] <= -490:
+            ix = 0
+        elif position[0] <= -420:
+            ix = 1
+        elif position[0] <= -350:
+            ix = 2
+        elif position[0] <= -280:
+            ix = 3
+        elif position[0] <= -210:
+            ix = 4
+        elif position[0] <= -140:
+            ix = 5
+        elif position[0] <= -70:
+            ix = 6
+        elif position[0] <= 0:
+            ix = 7
+        elif position[0] <= 70:
+            ix = 8
+        elif position[0] <= 140:
+            ix = 9
+        elif position[0] <= 210:
+            ix = 10
+        elif position[0] <= 280:
+            ix = 11
+        elif position[0] <= 350:
+            ix = 12
+        elif position[0] <= 420:
+            ix = 13
+        elif position[0] <= 490:
+            ix = 14
+        else:
+            ix = 15
+        
+        if position[1] <= -272:
+            iy = 0
+        elif position[1] <= -204:
+            iy = 1
+        elif position[1] <= -136:
+            iy = 2
+        elif position[1] <= -68:
+            iy = 3
+        elif position[1] <= -0:
+            iy = 4
+        elif position[1] <= 68:
+            iy = 5
+        elif position[1] <= 136:
+            iy = 6
+        elif position[1] <= 204:
+            iy = 7
+        elif position[1] <= 272:
+            iy = 8
+        else:
+            iy = 9
+        
+        heatmap_data[iy, ix] += 1
+
+    #factor = heatmap_data.max()
+
+    heatmap_data = heatmap_data * 100 / len(ball_positions)
+
+
+    wd = matplotlib.cm.winter._segmentdata
+    wd["alpha"] = ((0.0, 0.0, 0.3),
+                    (0.3, 0.3, 1.0),
+                    (1.0, 1.0, 1.0))
+
+    al_winter = matplotlib.colors.LinearSegmentedColormap("AlphaWinter", wd)
+
+    field_img = mpimg.imread("Spielfeld.png")
+
+    sns.set()
+
+    hmax = sns.heatmap(heatmap_data,
+        #cmap = al_winter, # this worked but I didn't like it
+        cmap = matplotlib.cm.cool,
+        alpha = 0.4, # whole heatmap is translucent
+        annot = True,
+        zorder = 2,
+        )
+    
+    hmax.imshow(field_img,
+                aspect = hmax.get_aspect(),
+                extent = hmax.get_xlim() + hmax.get_ylim(),
+                zorder = 1) #put the map under the heatmap
+
+    matplotlib.pyplot.show()
+
     # close the MySQL curser object
     mycurser.close()
     # close the MySQL connection
@@ -239,7 +341,7 @@ def save_data_process(queue_in):
 
 def field_detection_process(queue_out, queue_stop):
 
-    video_file = "GX010003.mp4"
+    video_file = "ball_tracking_test.mp4"
 
     # video capturing from video file or camera
     # to read a video file insert the file name
@@ -1102,7 +1204,7 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
             y_ball_old = y_ball_real
             recorded_time_old = recorded_time
 
-            data.append((frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_velocity, y_velocity, x[14], y[14], recorded_time))
+            data.append((frame_count, x_ball, y_ball, kf_predict_x, kf_predict_y, x_ball_real, y_ball_real, x_velocity, y_velocity, x[14], y[14], recorded_time))
 
             if len(data) >= 500:
                 queue_out.put(data)
