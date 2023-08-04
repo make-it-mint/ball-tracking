@@ -402,6 +402,8 @@ def field_detection_process(queue_out, queue_stop):
 
     field_found = False
 
+    field_not_found_count = 10
+
     #field_detection.fieldDetection(image_color=frame, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold)
 
     # go to a specific frame
@@ -458,9 +460,28 @@ def field_detection_process(queue_out, queue_stop):
         #print(valid_line)
         #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
         #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-        field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
-            image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
-            )
+
+        if field_not_found_count >= 10:
+            for perc in range(0.93, 0.88, -0.005):
+                treshold = image_processing.findTreshold(image=frame, threshold_percentage=perc)
+
+                field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+                    image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
+                    )
+                
+                if field_found:
+                    field_not_found_count = 0
+                    break
+        else:
+            field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+                image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
+                )
+        
+            if not field_found:
+                field_not_found_count += 1
+            else:
+                field_not_found_count = 0
+                
         #print(upper_line)
         #x = [1000]
         #y = [200]

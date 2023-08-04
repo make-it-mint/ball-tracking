@@ -3,7 +3,7 @@
 import numpy as np
 import cv2 as cv
 
-def findTreshold(image):
+def findTreshold(image, threshold_percentage):
 
     # convert the image to grayscale
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
