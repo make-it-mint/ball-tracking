@@ -341,7 +341,7 @@ def save_data_process(queue_in):
 
 def field_detection_process(queue_out, queue_stop):
 
-    video_file = "ball_tracking_test.mp4"
+    video_file = "WIN_20230731_18_47_20_Pro.mp4"
 
     # video capturing from video file or camera
     # to read a video file insert the file name
@@ -378,13 +378,13 @@ def field_detection_process(queue_out, queue_stop):
     print(f"video width: {video_width}")
     print(f"video height: {video_height}")
 
-    ret, frame = cap.read()
+    #ret, frame = cap.read()
 
-    treshold = image_processing.findTreshold(image=frame)
+    #treshold = image_processing.findTreshold(image=frame)
 
-    gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+    #gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
 
-    _, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
+    #_, thresh = cv.threshold(gray, treshold, 255, cv.THRESH_BINARY)
 
     x = []
     y = []
@@ -396,6 +396,8 @@ def field_detection_process(queue_out, queue_stop):
     y_average = []
 
     field_found = False
+
+    field_not_found_count = 10
 
     #field_detection.fieldDetection(image_color=frame, x_old=x, y_old=y, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold)
 
@@ -453,9 +455,37 @@ def field_detection_process(queue_out, queue_stop):
         #print(valid_line)
         #upper_line, x, y = field_detection.checkFieldCenter(image=thresh, x=900, y=700, video_height=video_height, video_width=video_width)
         #center_found, x, y = field_detection.findField(image=thresh, video_height=video_height, video_width=video_width)
-        field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
-            image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
-            )
+
+        # try to find a new threshold if the field cant be found for 10 consecutive frames
+        if field_not_found_count >= 10:
+            #looß throu different percentages
+            for perc in range(930, 880, -5):
+                # find the threshold for that percentage
+                treshold = image_processing.findTreshold(image=frame, threshold_percentage=perc/1000)
+
+                # try to find the field with that percentage
+                field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+                    image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
+                    )
+                
+                # stop if the field is found
+                if field_found:
+                    # reset the count
+                    field_not_found_count = 0
+                    break
+
+        else:
+            # try to find the field
+            field_image, thresh, field_found, field_moved, x, y, x_left, x_right, y_lower, y_upper = field_detection.fieldDetection(
+                image_color=frame, x_old=x_average, y_old=y_average, field_found=field_found, video_height=video_height, video_width=video_width, threshold=treshold
+                )
+
+            # modify the count variable depending if the field is found or not
+            if not field_found:
+                field_not_found_count += 1
+            else:
+                field_not_found_count = 0
+
         #print(upper_line)
         #x = [1000]
         #y = [200]

@@ -3,7 +3,7 @@
 import numpy as np
 import cv2 as cv
 
-def findTreshold(image):
+def findTreshold(image, threshold_percentage):
 
     # convert the image to grayscale
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
@@ -19,7 +19,7 @@ def findTreshold(image):
     treshold = 255
 
     # numerical integration until the percentage is reached
-    while percentage >= 0.90:
+    while percentage >= threshold_percentage:
         treshold -= 1
         percentage = 1 - sum(hist_normalized[treshold:-1])
 
