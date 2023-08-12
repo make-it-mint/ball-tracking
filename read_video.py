@@ -2,14 +2,19 @@
 
 import numpy as np
 import cv2 as cv
+import pandas as pd
+import time
 
 # video capturing from video file or camera
 # to read a video file insert the file name
 # for a camera insert an integer depending on the camera port
-cap = cv.VideoCapture("Test-Videos/test-game.MP4")
+cap = cv.VideoCapture("Test-Videos/ball_tracking_test.MP4")
+
+# import csv compare ball tracking data
+csv = pd.read_csv("X_und_Y_Positionen_des_Balles_Video_ball_tracking_test.csv")
 
 fps = cap.get(cv.CAP_PROP_FPS)
-cap.set(cv.CAP_PROP_POS_FRAMES, fps * 57) # start video by sek 57
+# cap.set(cv.CAP_PROP_POS_FRAMES, fps * 57) # start video by sek 57
 print(fps)
 
 # Video soll in der richtigen Geschwindigkeit abgespielt werden / Wie viele millisekunden braucht ein einzelner Frame (querwert = Zeit in millisekunden)
@@ -19,6 +24,12 @@ frame_time = int(1000/fps)
 if not cap.isOpened():
     print("Cannot open camera or video file")
     exit()
+
+i = 0
+frame_count = 0
+
+# stop time - comparing the times how long a algorthm takes to go through the video
+start_time = time.time()
 
 while True:
     # Capture frame-by-frame
@@ -64,10 +75,17 @@ while True:
         max(r) - min(r)
 
         # wenn max - min = 0 dann ist das ein perfekter Kreis
-        if np.max(r) - np.min(r) < 30 and np.max(r) > 20:                      
-            li.append(k)         
+        if np.max(r) - np.min(r) < 5 and np.max(r) > 20:                      
+            li.append(k) 
+            x_ball = mx
+            y_ball = my
+
+    # calculating the failsure percentage
+    if len(li) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
+        # variabel i for right detection 
+        i += 1      
         
-        #print(contours)
+    #print(contours)
     draw_contours = cv.drawContours(gray, li, -1, (0,255,0), 2)
 
     # resize
@@ -84,6 +102,20 @@ while True:
     # stop the loop if the "q" key on the keyboard is pressed 
     if cv.waitKey(frame_time) == ord("q"):
         break
+
+    frame_count += 1
+
+print(i)
+print(frame_count)
+
+# stop time - comparing the times how long a algorthm takes to go through the video
+end_time = time.time()
+elasped_time = end_time - start_time
+print(f"Die Ausführung des Videos hat {elasped_time}s gedauert.")
+
+# detection of the ball percentage
+detect_perc = (i * 100) / frame_count
+print(f"Die Ballerkennungsrate liegt bei {detect_perc}%.")
 
 # When everything done, release the capture
 cap.release()
