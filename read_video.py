@@ -16,6 +16,7 @@ import queue
 #import LinearSegmentedColormap
 import matplotlib
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
 import seaborn as sns
 
 import field_detection
@@ -341,7 +342,7 @@ def save_data_process(queue_in):
 
 def field_detection_process(queue_out, queue_stop):
 
-    video_file = "WIN_20230731_18_47_20_Pro.mp4"
+    video_file = "ball_tracking_test.mp4"
 
     # video capturing from video file or camera
     # to read a video file insert the file name
@@ -1304,6 +1305,100 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
             break
     
     queue_out.put(end_time)
+
+    x_conv_factor_list = []
+    y_conv_factor_list = []
+
+    x_factor_y = []
+    x_factor_x = []
+
+    y_factor_y = []
+    y_factor_x = []
+
+    # find the conversion vector for the y coordinate
+    for x_position in range(0, 1920):
+
+        x_position_centered = x_position - x[14]
+            
+        if x_position <= x_mid_16_17:
+            x_sector_position = abs(x_position_centered) - (x[14] - x_mid_16_17)
+            x_sector_width = x_mid_16_17 - x_mid_18_19
+            y_conv_factor = y_conv_factor_16_17 + (y_conv_factor_18_19 - y_conv_factor_16_17) * (x_sector_position / x_sector_width)
+
+        elif x_position >= x_mid_16_17 and x_position <= x[14]:
+            x_sector_position = abs(x_position_centered)
+            x_sector_width = x[14] - x_mid_16_17
+            y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_16_17 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
+
+        elif x_position >= x[14] and x_position <= x_mid_20_21:
+            x_sector_position = abs(x_position_centered)
+            x_sector_width = x_mid_20_21 - x[14]
+            y_conv_factor = y_conv_factor_5_13 + (y_conv_factor_20_21 - y_conv_factor_5_13) * (x_sector_position / x_sector_width)
+        
+        elif x_position >= x_mid_20_21:
+            x_sector_position = abs(x_position_centered) - (x_mid_20_21 - x[14])
+            x_sector_width = x_mid_22_23 - x_mid_20_21
+            y_conv_factor = y_conv_factor_20_21 + (y_conv_factor_22_23 - y_conv_factor_20_21) * (x_sector_position / x_sector_width)
+        
+        y_conv_factor_list.append(y_conv_factor)
+
+        if x_position in [x_mid_16_17, x_mid_18_19, x_mid_20_21, x_mid_22_23, x[14]]:
+            y_factor_y.append(y_conv_factor)
+            y_factor_x.append(x_position)
+
+        
+
+
+    # find the conversion vector for the x coordinate
+    for y_position in range(0, 1080):
+
+        y_position_centered = y_position - y[14]
+
+        if y_position <= y_mid_18_22:
+            y_sector_position = abs(y_position_centered) - (y[14] - y_mid_18_22)
+            y_sector_width = y_mid_18_22 - y_mid_16_20
+            x_conv_factor = x_conv_factor_18_22 + (x_conv_factor_16_20 - x_conv_factor_18_22) * (y_sector_position / y_sector_width)
+        
+        elif y_position >= y_mid_18_22 and y_position <= y[14]:
+            y_sector_position = abs(y_position_centered)
+            y_sector_width = y[14] - y_mid_18_22
+            x_conv_factor = x_conv_factor_center + (x_conv_factor_18_22 - x_conv_factor_center) * (y_sector_position / y_sector_width)
+
+        elif y_position >= y[14] and y_position <= y_mid_19_23:
+            y_sector_position = abs(y_position_centered)
+            y_sector_width = y_mid_19_23 - y[14]
+            x_conv_factor = x_conv_factor_center + (x_conv_factor_19_23 - x_conv_factor_center) * (y_sector_position / y_sector_width)
+
+        elif y_position >= y_mid_19_23:
+            y_sector_position = abs(y_position_centered) - (y_mid_19_23 - y[14])
+            y_sector_width = y_mid_17_21 - y_mid_19_23
+            x_conv_factor = x_conv_factor_19_23 + (x_conv_factor_17_21 - x_conv_factor_19_23) * (y_sector_position / y_sector_width)
+        
+        x_conv_factor_list.append(x_conv_factor)
+
+        if y_position in [y_mid_16_20, y_mid_17_21, y_mid_18_22, y_mid_19_23, y[14]]:
+            x_factor_y.append(x_conv_factor)
+            x_factor_x.append(y_position)
+    
+    plt.figure("Umrechnungsfaktor in y Richtung")
+    plt.plot(range(0, 1920), y_conv_factor_list, "-b")
+    plt.plot(y_factor_x, y_factor_y, "or")
+    plt.title("Umrechnungsfaktor in y Richtung")
+    plt.ylabel("Umrechnungsfaktor")
+    plt.xlabel("Pixel")
+    plt.xlim([0, 1919])
+    plt.grid()
+
+    plt.figure("Umrechnungsfaktor in x Richtung")
+    plt.plot(range(0, 1080), x_conv_factor_list, "-b")
+    plt.plot(x_factor_x, x_factor_y, "or")
+    plt.title("Umrechnungsfaktor in x Richtung")
+    plt.ylabel("Umrechnungsfaktor")
+    plt.xlabel("Pixel")
+    plt.xlim([0, 1079])
+    plt.grid()
+
+    plt.show()
 
 if __name__ == "__main__":
     # create the queue to send data from one process to the other
