@@ -309,12 +309,12 @@ def save_data_process(queue_in):
     heatmap_data = heatmap_data * 100 / len(ball_positions)
 
 
-    wd = matplotlib.cm.winter._segmentdata
+    """wd = matplotlib.cm.winter._segmentdata
     wd["alpha"] = ((0.0, 0.0, 0.3),
                     (0.3, 0.3, 1.0),
                     (1.0, 1.0, 1.0))
 
-    al_winter = matplotlib.colors.LinearSegmentedColormap("AlphaWinter", wd)
+    al_winter = matplotlib.colors.LinearSegmentedColormap("AlphaWinter", wd)"""
 
     field_img = mpimg.imread("Spielfeld.png")
 
@@ -322,7 +322,7 @@ def save_data_process(queue_in):
 
     hmax = sns.heatmap(heatmap_data,
         #cmap = al_winter, # this worked but I didn't like it
-        cmap = matplotlib.cm.cool,
+        cmap = matplotlib.cm.nipy_spectral,
         alpha = 0.4, # whole heatmap is translucent
         annot = True,
         zorder = 2,
