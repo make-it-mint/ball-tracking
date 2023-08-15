@@ -1116,7 +1116,6 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
             y_mid_18_22 = round((y[17] + y[21]) /2)
             y_mid_19_23 = round((y[16] + y[22]) /2)
 
-
             y_diff_18_19 = y[18] - y[17]
             y_diff_22_23 = y[22] - y[21]
 
@@ -1157,9 +1156,22 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
             x_conv_factor_19_23 = 918 / x_diff_19_23
             x_conv_factor_17_21 = 640 / x_diff_17_21
 
+            horizontal_x = np.array([x_mid_18_19, x_mid_16_17, x[14], x_mid_20_21, x_mid_22_23])
+            horizontal_factor = np.array([y_conv_factor_18_19, y_conv_factor_16_17, y_conv_factor_5_13, y_conv_factor_20_21, y_conv_factor_22_23])
 
+            vertical_x = np.array([y_mid_16_20, y_mid_18_22, y[14], y_mid_19_23, y_mid_17_21])
+            vertical_factor = np.array([x_conv_factor_16_20, x_conv_factor_18_22, x_conv_factor_center, x_conv_factor_19_23, x_conv_factor_17_21])
 
-            # find the conversion vector for the y coordinate
+            # conversion factors as line of best fit
+            horizontal_coefficients = np.polyfit(horizontal_x, horizontal_factor, 1)
+            horizontal_m, horizontal_c = horizontal_coefficients
+            y_conv_factor = horizontal_m * x_position_centered + horizontal_c
+
+            vertical_coefficients = np.polyfit(vertical_x, vertical_factor, 1)
+            vertical_m, vertical_c = vertical_coefficients
+            x_conv_factor = vertical_m * x_position_centered + vertical_c
+
+            """# find the conversion vector for the y coordinate
             if x_position <= x_mid_16_17:
                 x_sector_position = abs(x_position_centered) - (x[14] - x_mid_16_17)
                 x_sector_width = x_mid_16_17 - x_mid_18_19
@@ -1199,7 +1211,7 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
             elif y_position >= y_mid_19_23:
                 y_sector_position = abs(y_position_centered) - (y_mid_19_23 - y[14])
                 y_sector_width = y_mid_17_21 - y_mid_19_23
-                x_conv_factor = x_conv_factor_19_23 + (x_conv_factor_17_21 - x_conv_factor_19_23) * (y_sector_position / y_sector_width)
+                x_conv_factor = x_conv_factor_19_23 + (x_conv_factor_17_21 - x_conv_factor_19_23) * (y_sector_position / y_sector_width)"""
 
             
             x_ball_real = x_position_centered * x_conv_factor
@@ -1379,21 +1391,48 @@ def data_process(queue_in, queue_out, queue_stop1, queue_stop2):
         if y_position in [y_mid_16_20, y_mid_17_21, y_mid_18_22, y_mid_19_23, y[14]]:
             x_factor_y.append(x_conv_factor)
             x_factor_x.append(y_position)
-    
-    plt.figure("Umrechnungsfaktor in y Richtung")
+
+        # conversion factors as line of best fit
+        horizontal_coefficients = np.polyfit(horizontal_x, horizontal_factor, 1)
+        horizontal_m, horizontal_c = horizontal_coefficients
+        horizontal_factor_fit = horizontal_m * range(0, 1920) + horizontal_c
+
+        vertical_coefficients = np.polyfit(vertical_x, vertical_factor, 1)
+        vertical_m, vertical_c = vertical_coefficients
+        vertical_factor_fit = vertical_m * range(0, 1080) + vertical_c
+
+    plt.figure("Umrechnungsfaktor in y Richtung durch Inter- und Extrapolation")
     plt.plot(range(0, 1920), y_conv_factor_list, "-b")
     plt.plot(y_factor_x, y_factor_y, "or")
-    plt.title("Umrechnungsfaktor in y Richtung")
-    plt.ylabel("Umrechnungsfaktor")
+    plt.title("Umrechnungsfaktor in y Richtung durch Inter- und Extrapolation")
+    plt.ylabel("Umrechnungsfaktor [mm/Pixel]")
     plt.xlabel("Pixel")
     plt.xlim([0, 1919])
     plt.grid()
 
-    plt.figure("Umrechnungsfaktor in x Richtung")
+    plt.figure("Umrechnungsfaktor in x Richtung durch Inter- und Extrapolation")
     plt.plot(range(0, 1080), x_conv_factor_list, "-b")
     plt.plot(x_factor_x, x_factor_y, "or")
-    plt.title("Umrechnungsfaktor in x Richtung")
-    plt.ylabel("Umrechnungsfaktor")
+    plt.title("Umrechnungsfaktor in x Richtung durch Inter- und Extrapolation")
+    plt.ylabel("Umrechnungsfaktor [mm/Pixel]")
+    plt.xlabel("Pixel")
+    plt.xlim([0, 1079])
+    plt.grid()
+    
+    plt.figure("Umrechnungsfaktor in y Richtung als Regressionslinie")
+    plt.plot(range(0, 1920), horizontal_factor_fit, "-b")
+    plt.plot(y_factor_x, y_factor_y, "or")
+    plt.title("Umrechnungsfaktor in y Richtung als Regressionslinie")
+    plt.ylabel("Umrechnungsfaktor [mm/Pixel]")
+    plt.xlabel("Pixel")
+    plt.xlim([0, 1919])
+    plt.grid()
+
+    plt.figure("Umrechnungsfaktor in x Richtung als Regressionslinie")
+    plt.plot(range(0, 1080), vertical_factor_fit, "-b")
+    plt.plot(x_factor_x, x_factor_y, "or")
+    plt.title("Umrechnungsfaktor in x Richtung als Regressionslinie")
+    plt.ylabel("Umrechnungsfaktor [mm/Pixel]")
     plt.xlabel("Pixel")
     plt.xlim([0, 1079])
     plt.grid()
