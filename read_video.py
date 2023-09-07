@@ -8,6 +8,8 @@ import ball_tracking_methods
 import time
 import field_detection
 import image_processing
+import matplotlib.pyplot as plt
+import math 
 
 ## a list to save the 50 first frames and to update the list for a better recognition 
 frame_list = []
@@ -19,7 +21,13 @@ iterations = []
 update_rate = []
 pixel_detection = []
 
-for _ in range(3):
+list_detect_perc = []
+list_detect_perc_kalman_combined = []
+list_detect_perc_kalman = []
+list_detect_all_combined = []
+list_time = []
+
+for _ in range(10):
     # for pxc in range(5, 16, 2):
         # for upd in range(4, 30, 5):
             # for iter in range(1, 3):
@@ -109,6 +117,9 @@ for _ in range(3):
     i = 0
 
     ## variabel j for right detection kalman 
+    ij = 0
+
+    ## variabel j for right detection kalman 
     j = 0
 
     ## stop time - comparing the times how long a algorthm takes to go through the video 
@@ -126,6 +137,12 @@ for _ in range(3):
     kf_pred_old = np.array([[np.float32(0)],[np.float32(0)]])
 
     kf_update = 10
+
+    ## lists for matplotlib 
+    list_distance_act_csv = []
+    list_frame_count = []
+
+    
 
     fourcc = cv.VideoWriter_fourcc(*'XVID')
     out = cv.VideoWriter('output.avi', fourcc, 30.0, (1920, 1080))
@@ -204,19 +221,17 @@ for _ in range(3):
 
         ## if loop which saves the 50 first frames in a list and updates the list ever 30 frames (1 sek)
         if len(frame_list) < 50: 
-            frame_imbinarized_copy = frame_imbinarized
             # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
             while len(frame_list) < 50:
-                frame_list.append(frame_imbinarized_copy)
+                frame_list.append(frame_imbinarized)
             background = sum(frame_list)
             background[background >= 3] = 255
             background[background < 3] = 0
             background_inverted = cv.bitwise_not(background)
         elif len(frame_list) == 50 and update_frame_list == 9:
             frame_list.pop(0)
-            frame_imbinarized_copy = frame_imbinarized
             # frame_imbinarized_copy[np.all(frame_imbinarized_copy == (255), axis = None)] = (1)
-            frame_list.append(frame_imbinarized_copy) 
+            frame_list.append(frame_imbinarized) 
             update_frame_list = 0
             background = sum(frame_list)
             background[background >= 3] = 255
@@ -238,62 +253,59 @@ for _ in range(3):
             y_lower = y_lower
             )
         
-        cv.circle(frame, (int(x_ball_fr_mid), int(y_ball_fr_mid)), 20, (20,125,35), 2)
-        
+        cv.circle(frame, (int(x_ball_fr_mid), int(y_ball_fr_mid)), 20, (255,191,0), 2)
+
         ## searching for the ball and rembering its last position
-        if len(x_ball_found_remember) and len(y_ball_found_remember) < 10 and len(ball) == 1:
+        if len(x_ball_found_remember) < 10 and len(ball) == 1:
             x_ball_found_remember.append(x_ball)
             y_ball_found_remember.append(y_ball)
             x_ball_fr_mid = round(np.mean(x_ball_found_remember))
             y_ball_fr_mid = round(np.mean(y_ball_found_remember))
-        elif len(x_ball_found_remember) and len(y_ball_found_remember) > 10 and len(ball) == 1:
+        elif len(x_ball_found_remember) >= 10 and len(ball) == 1:
             x_ball_found_remember.pop(0)
             y_ball_found_remember.pop(0)
             x_ball_found_remember.append(x_ball)
             y_ball_found_remember.append(y_ball)
             x_ball_fr_mid = round(np.mean(x_ball_found_remember))
             y_ball_fr_mid = round(np.mean(y_ball_found_remember))
-        elif len(ball) == 1:
-            x_ball_found_remember.append(x_ball)
-            y_ball_found_remember.append(y_ball)
-            x_ball_fr_mid = round(np.mean(x_ball_found_remember))
-            y_ball_fr_mid = round(np.mean(y_ball_found_remember))
 
         ## kalman filter
-        # kf.statePre = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
-        # kf.statePost = np.array([[csv.x_pos[frame_count]], [csv.y_pos[frame_count]], [0], [0]], np.float32)
         if len(x_ball) and len(y_ball) == 1:
-            # kf.statePre = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
-            # kf.statePost = np.array([[x_mid[0]], [y_mid[0]], [x_vel], [y_vel]], np.float32)
             kf.correct(np.array([[np.float32(x_ball[0])],[np.float32(y_ball[0])]]))
-        # else:
-            # kf_predict = kf.predict()
 
-        # kf.correct(np.array([[np.float32(x_mid[0])],[np.float32(y_mid[0])]]))
-        # kf_predict = kf.predict()
         cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (0,255,0), 2)
         cv.circle(frame, (int(csv.x_pos[frame_count]), int(csv.y_pos[frame_count])), 20, (127,0,125), 2)
 
+        ## calculating the distance btw csv and actual detection 
+        if len(ball) == 1:
+            csv_distance = math.sqrt((x_ball - csv.x_pos[frame_count]) ** 2 + (y_ball - csv.y_pos[frame_count]) ** 2)
+        else:
+            csv_distance = math.sqrt((kf_predict[0, 0] - csv.x_pos[frame_count]) ** 2 + (kf_predict[1, 0] - csv.y_pos[frame_count]) ** 2)
+
         ## calculating the failsure percentage 
         if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
-            # variabel i for right detection 
+            ## variabel i for right detection 
             i += 1
+
+        ## calculating the failsure percentage 
+        if len(ball) == 1 and abs(x_ball - csv.x_pos[frame_count]) <= 20 and abs(y_ball - csv.y_pos[frame_count]) <= 20:
+            ## variabel i for right detection 
+            ij += 1
         elif abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
-            i += 1
+            ij += 1
         
         ## calculating the failsure percentage for kalman
         if abs(kf_predict[0, 0] - csv.x_pos[frame_count]) <= 20 and abs(kf_predict[1, 0] - csv.y_pos[frame_count]) <= 20:
-            # variabel i for right detection 
+            ## variabel i for right detection 
             j += 1
 
-        frame_count += 1 
+         
 
         kf_predict = kf.predict()
-        # cv.circle(frame, (int(kf_predict[0, 0]), int(kf_predict[1, 0])), 20, (255,0,0), 2)
 
         ball_radius = 31
         kalman_corrected = False 
-
+        
         ## barrier for the kalaman 
         if kf_predict[0, 0] < x_left + ball_radius:
             kf_distance_y = kf_pred_old[1, 0] - kf_predict[1, 0]
@@ -344,8 +356,8 @@ for _ in range(3):
             kf_update = 0 
 
         kf_pred_old = kf_predict  
-
-        out.write(frame)     
+        
+        # out.write(frame)     
 
         ## Display the resulting frame
         cv.imshow("resized", frame)
@@ -357,18 +369,36 @@ for _ in range(3):
         x_mid_old = x_ball
         y_mid_old = y_ball 
 
+        ## append lists for matplotlib 
+        list_distance_act_csv.append(csv_distance)
+
+        list_frame_count.append(frame_count)
+
+        frame_count += 1
+
+        
+
     # detection of the ball percentage
     detect_perc = (i * 100) / frame_count
     print(f"Die Ballerkennungsrate liegt bei {detect_perc}%.")
 
     # detection of the ball percentage
+    detect_perc_kalman_combined = (ij * 100) / frame_count
+    print(f"Die Ballerkennungsrate mit dem Kalman Filter liegt bei {detect_perc_kalman_combined}%.")
+
+    # detection of the ball percentage
     detect_perc_kalman = (j * 100) / frame_count
-    print(f"Die Ballerkennungsrate mit dem Klaman Filter liegt bei {detect_perc_kalman}%.")
+    print(f"Die Kalmanerkennungsrate liegt bei {detect_perc_kalman}%.")
 
     # stop time - comparing the times how long a algorthm takes to go through the video 
     end_time = time.time()
     elasped_time = end_time - start_time
     print(f"Die Ausführung des Videos hat {elasped_time}s gedauert.")
+
+    list_detect_perc.append(detect_perc)
+    list_detect_perc_kalman_combined.append(detect_perc_kalman_combined)
+    list_detect_perc_kalman.append(detect_perc_kalman)
+    list_time.append(elasped_time)
 
     # kernel_size.append(xk)
     # time_rate.append(elasped_time)
@@ -387,3 +417,60 @@ for _ in range(3):
                 # "kernel size": kernel_size, "time rate": time_rate, "detection rate": detection_rate})
     ## save data frame as cvs data
     # df.to_csv("Erkennungsdaten_eigene_backgroundsubstraction_2.csv")
+
+plt.plot(list_frame_count, list_distance_act_csv, "-b")
+# plt.legend(loc="upper right")
+plt.title("Abweichung der Ballerkennung von der tatsächlichen Position")
+plt.ylabel("Distanz [Pixel]")
+plt.xlabel("Frame")
+# plt.xlim([-1, frames[-1]])
+plt.grid()
+
+print(range(1,11))
+print(list_detect_perc)
+plt.figure("10 Durchläufe 1")
+plt.plot(range(1,11), list_detect_perc, "-b", label = 'Ball Erkennung')
+plt.plot(range(1,11), list_detect_perc_kalman_combined, "-r", label = 'Ball und Kalman Erkennung')
+plt.plot(range(1,11), list_detect_perc_kalman, "-g", label = 'Kalman Erkennung')
+plt.legend(loc="right")
+plt.title("Ballerkennung")
+plt.ylabel("Erkennungsrate [%]")
+plt.xlabel("Durchlauf")
+# plt.xlim([-1, frames[-1]])
+plt.grid()
+
+plt.figure("10 Durchläufe 2")
+plt.plot(range(1,11), list_detect_perc, "-b", label = 'Ball Erkennung')
+plt.legend(loc="upper right")
+plt.title("Ballerkennung")
+plt.ylabel("Erkennungsrate [%]")
+plt.xlabel("Durchlauf")
+# plt.xlim([-1, frames[-1]])
+plt.grid()
+
+plt.figure("10 Durchläufe 3")
+plt.plot(range(1,11), list_detect_perc_kalman_combined, "-r", label = 'Ball und Kalman Erkennung')
+plt.legend(loc="upper right")
+plt.title("Ballerkennung")
+plt.ylabel("Erkennungsrate [%]")
+plt.xlabel("Durchlauf")
+# plt.xlim([-1, frames[-1]])
+plt.grid()
+
+plt.figure("10 Durchläufe 4")
+plt.plot(range(1,11), list_detect_perc_kalman, "-g", label = 'Kalman Erkennung')
+plt.legend(loc="upper right")
+plt.title("Ballerkennung")
+plt.ylabel("Erkennungsrate [%]")
+plt.xlabel("Durchlauf")
+# plt.xlim([-1, frames[-1]])
+plt.grid()
+
+plt.figure("10 Durchläufe")
+plt.plot(range(1,11), list_time, "-c")
+plt.title("Durchlaufzeit")
+plt.ylabel("Dauer [s]")
+plt.xlabel("Durchlauf")
+# plt.xlim([-1, frames[-1]])
+plt.grid()
+plt.show()

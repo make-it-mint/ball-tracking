@@ -14,4 +14,4 @@ test -d $SCRIPT_DIR/.ball-tracking_venv \
 source $SCRIPT_DIR/.ball-tracking_venv/Scripts/activate \
     && $SCRIPT_DIR/.ball-tracking_venv/Scripts/Python.exe -m pip install --upgrade pip \
     && pip install -r $SCRIPT_DIR/requirements.txt \
-    && python $SCRIPT_DIR/read_video.py --image $SCRIPT_DIR/cat.jpg
+    && python $SCRIPT_DIR/read_video.py 

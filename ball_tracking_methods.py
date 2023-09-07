@@ -156,7 +156,7 @@ def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_f
     kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (13, 13))
 
     vid_erosion = cv.erode(first_frame_combined_cor, kernel, iterations=1)
-    vid_dilation = cv.dilate(vid_erosion, kernel, iterations=3)
+    vid_dilation = cv.dilate(vid_erosion, kernel, iterations=2)
 
     ## finding the ball / encircle the ball 
     ## find contours
@@ -177,7 +177,6 @@ def matlabDetection(frame, frame_imbinarized, background_inverted, cap, x_ball_f
     x_mid = []
     y_mid = []
 
-    circle_contour_list = []
     total_distance = []
 
     for mid_value_contours in con_filtered:
